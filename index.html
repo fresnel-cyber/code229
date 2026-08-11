@@ -346,6 +346,7 @@
   .empty-state p{font-size:13px; max-width:34ch; margin:0 auto;}
 
   .footer-note{text-align:center; font-size:11px; color:var(--chalk-faint); margin-top:34px; line-height:1.6;}
+  .footer-credit{display:inline-block; margin-top:8px; font-family:var(--font-display); font-size:12px; letter-spacing:0.6px; color:var(--chalk-dim);}
 
   a{color:var(--blue);}
 
@@ -1380,7 +1381,7 @@
     html += '<div class="section-title">Ta progression par chapitre</div>';
     html += renderChapterList(true);
 
-    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011) &amp; supports Auto-École Le Zèbra.<br>Progression enregistrée automatiquement sur cet appareil.</div>';
+    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil.<br><span class="footer-credit">Made by Fresnel SATIGNON</span></div>';
 
     html += '</div>';
     return html;
