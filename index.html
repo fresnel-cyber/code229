@@ -17,6 +17,7 @@
     --chalk-dim: #B9B6AA;
     --chalk-faint: #9E9B90; /* éclairci : ≥4.5:1 (WCAG AA) sur asphalt / -2 / -3 */
     --yellow: #F0BA1F;
+    --yellow-deep: #E7A90E; /* jaune profond pour le dégradé du CTA primaire */
     --yellow-dim: #4A3F1C;
     --green: #2CAA6B;
     --green-dim: #123722;
@@ -46,7 +47,7 @@
   html,body{margin:0;padding:0;}
   body{
     background:
-      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(240,186,31,0.10), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 50% -10%, rgba(240,186,31,var(--tint-bg)), transparent 60%),
       var(--asphalt);
     color:var(--chalk);
     font-family:var(--font-body);
@@ -353,8 +354,10 @@
   .fiche-content{max-height:0; overflow:hidden; transition:max-height .3s ease;}
   .fiche-card.open .fiche-content{max-height:2000px;}
   .fiche-content-inner{padding:0 16px 16px 16px;}
-  .fiche-content-inner ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:9px;}
-  .fiche-content-inner li{font-size:13px; line-height:1.5; color:var(--chalk-dim);}
+  .fiche-content-inner ul{margin:0; padding-left:0; list-style:none; display:flex; flex-direction:column; gap:9px;}
+  .fiche-content-inner li{position:relative; padding-left:20px; font-size:13px; line-height:1.5; color:var(--chalk-dim);}
+  /* puce = trait de marquage routier jaune */
+  .fiche-content-inner li::before{content:""; position:absolute; left:0; top:0.62em; width:11px; height:3px; border-radius:2px; background:var(--yellow);}
   .fiche-content-inner li b{color:var(--chalk); font-weight:600;}
 
   .empty-state{text-align:center; padding:50px 20px; color:var(--chalk-faint);}
@@ -388,7 +391,7 @@
   .daily-card{
     display:block; width:100%; text-align:left; cursor:pointer; color:var(--asphalt);
     margin-top:14px; padding:18px 18px 16px; border-radius:var(--radius-lg); border:none;
-    background:linear-gradient(150deg, var(--yellow), #E7A90E);
+    background:linear-gradient(150deg, var(--yellow), var(--yellow-deep));
     box-shadow:var(--shadow-soft);
     transition:transform .14s ease, filter .15s ease;
   }
@@ -492,7 +495,7 @@
   .fiche-head-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
   .fiche-head-text h4{margin:0;}
   .fiche-head-text span{font-size:11.5px; color:var(--chalk-faint);}
-  .fiche-lead{font-size:13px; color:var(--chalk); font-weight:500; margin:0 0 12px; line-height:1.45; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.07);}
+  .fiche-lead{font-size:13px; color:var(--chalk); font-weight:500; margin:0 0 12px; line-height:1.45; padding-bottom:12px; border-bottom:2px dashed rgba(255,255,255,0.14);}
   .fiche-return-hint{display:block; font-size:11.5px; color:var(--chalk-faint); margin-top:2px;}
 
   /* ---------- Retour visuel bonne/mauvaise réponse ---------- */
@@ -511,7 +514,7 @@
   .scene-svg{width:100%; max-width:300px; height:auto; border-radius:var(--radius-md); background:var(--asphalt-3);}
   .scene-cap{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.4px; color:var(--chalk-faint); text-transform:uppercase;}
   .sign-inline-cap{flex:1; min-width:0; overflow-wrap:break-word; font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--chalk); letter-spacing:0.3px; line-height:1.25;}
-  .tile-signs{background:linear-gradient(135deg, rgba(44,170,107,0.14), rgba(255,255,255,0.02)); border-color:rgba(44,170,107,0.28);}
+  .tile-signs{background:rgba(44,170,107,0.10); border-color:rgba(44,170,107,0.28);}
   .sign-tile-preview{display:flex; gap:5px; flex-shrink:0;}
   .sign-tile-preview .sign-svg{width:34px; height:34px;}
   .missed-sign{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
@@ -1739,8 +1742,8 @@
   }
   function probPhrase(p){
     if(p >= 80) return 'Tu es sur la bonne voie. Garde le rythme jusqu\'au jour J.';
-    if(p >= 60) return 'Ça avance bien — continue une session par jour et ça montera.';
-    if(p >= 40) return 'Encore du travail, mais c\'est jouable. La régularité fait tout.';
+    if(p >= 60) return 'Ça avance bien. Continue une session par jour et ça montera.';
+    if(p >= 40) return 'Encore du travail, mais c\'est jouable. Une session par jour suffit.';
     return 'Il reste pas mal à revoir. Une session par jour et la barre monte vite.';
   }
 
@@ -1768,31 +1771,31 @@
     }
     html += '</div>';
     if(progress.streak >= 2){
-      html += '<div class="streak-note">'+icon('bolt',13)+'<span>'+progress.streak+' jours d\'affilée — continue comme ça.</span></div>';
+      html += '<div class="streak-note">'+icon('compass',13)+'<span>'+progress.streak+' jours d\'affilée</span></div>';
     }
 
     // 2. QUOI FAIRE MAINTENANT — la session du jour, action dominante
     var whyLine;
     if(dueCnt > 0 && newCnt > 0) whyLine = 'Des questions déjà ratées reviennent, mêlées à des nouvelles pour avancer.';
-    else if(dueCnt === 0 && newCnt > 0) whyLine = 'Surtout des nouvelles questions aujourd\'hui — on découvre du terrain.';
+    else if(dueCnt === 0 && newCnt > 0) whyLine = 'Surtout des nouvelles questions aujourd\'hui.';
     else if(newCnt === 0 && dueCnt > 0) whyLine = 'On repasse ce que tu as déjà vu pour que ça reste bien ancré.';
-    else whyLine = 'Un mélange équilibré pour entretenir tout le programme.';
+    else whyLine = 'Un mélange de tout le programme.';
     html += '<button class="daily-card" data-action="start-daily">';
-    html += '<div class="daily-top"><span class="daily-kicker">'+icon('bolt',16)+' Session du jour</span>'+
+    html += '<div class="daily-top"><span class="daily-kicker">'+icon('compass',16)+' Session du jour</span>'+
       '<span class="daily-go">Commencer '+icon('arrowright',16)+'</span></div>';
-    html += '<div class="daily-headline">Ta séance sur mesure, ~20 questions</div>';
+    html += '<div class="daily-headline">Ta session du jour, ~20 questions</div>';
     html += '<div class="daily-why">'+whyLine+'</div>';
     html += '<div class="daily-chips">';
     if(dueCnt > 0) html += '<span class="dchip dchip-due">'+dueCnt+' à revoir</span>';
     if(newCnt > 0) html += '<span class="dchip dchip-new">'+newCnt+' pas encore vues</span>';
-    if(dueCnt === 0 && newCnt === 0) html += '<span class="dchip">Tout est à jour — bravo</span>';
+    if(dueCnt === 0 && newCnt === 0) html += '<span class="dchip">Tout est à jour</span>';
     html += '</div>';
     html += '</button>';
 
     // 3. Priorité du moment
     if(priority){
       var pr = priority.mastery === null
-        ? 'Chapitre pas encore commencé — un bon point de départ.'
+        ? 'Chapitre pas encore commencé, un bon point de départ.'
         : priority.reason;
       var wst = weakestSubTag(priority.chapter.id);
       var prText = wst ? ('Travaille surtout : '+wst.tag+' ('+wst.rate+'%)') : pr;
@@ -1810,7 +1813,7 @@
     html += '<button class="tile tile-signs tile-wide" data-action="start-signs">' +
       '<div style="display:flex;align-items:center;gap:12px;min-width:0;">' +
         '<div class="sign-tile-preview">'+signSvg('stop',34)+signSvg('cedez',34)+signSvg('vitesse50',34)+'</div>' +
-        '<div style="min-width:0;"><h3>Reconnais le panneau</h3><p>Apprends les panneaux à l\'œil — rapide et visuel.</p></div>' +
+        '<div style="min-width:0;"><h3>Reconnais le panneau</h3><p>Apprends les panneaux à l\'œil, en un jeu rapide.</p></div>' +
       '</div>' + icon('arrowright',16) +
     '</button>';
     html += '<button class="tile tile-exam" data-action="start-exam">' +
@@ -1909,9 +1912,9 @@
     signs:'Reconnais le panneau'
   };
   var DAILY_REASON = {
-    due:{label:'À revoir', hint:'Tu l\'as déjà croisée — on vérifie que c\'est acquis.'},
+    due:{label:'À revoir', hint:'Tu l\'as déjà croisée, on vérifie que c\'est acquis.'},
     'new':{label:'Nouvelle', hint:'Première fois que tu la vois.'},
-    review:{label:'Consolidation', hint:'Bien sue — un petit rappel pour ne pas l\'oublier.'}
+    review:{label:'Consolidation', hint:'Bien sue, un petit rappel pour ne pas l\'oublier.'}
   };
 
   function renderQuizBody(){
@@ -1946,7 +1949,7 @@
     html += '<div class="question-head">';
     html += '<span class="question-chip">'+(meta?meta.title:'')+(q.isSign?' · Panneau':'')+'</span>';
     if(!q.isSign){
-      html += '<button class="flag-btn'+(flagged?' active':'')+'" data-action="toggle-flag" aria-pressed="'+flagged+'" aria-label="'+(flagged?'Retirer des marquées':'Marquer pour révision')+'" title="'+(flagged?'Marquée — touche pour retirer':'Marquer pour révision')+'">'+icon('bookmark',17)+'</button>';
+      html += '<button class="flag-btn'+(flagged?' active':'')+'" data-action="toggle-flag" aria-pressed="'+flagged+'" aria-label="'+(flagged?'Retirer des marquées':'Marquer pour révision')+'" title="'+(flagged?'Marquée · touche pour retirer':'Marquer pour révision')+'">'+icon('bookmark',17)+'</button>';
     }
     html += '</div>';
     if(s.mode === 'daily' && s.reasons){
@@ -1989,13 +1992,13 @@
       var skipped = !!s.skipped[s.index];
       var bannerClass = ok ? 'ok' : 'ko';
       var bannerMsg = ok ? 'Bonne réponse !'
-        : (skipped ? 'Pas grave — voici la bonne réponse, surlignée en vert.'
-                   : 'Pas tout à fait — la bonne réponse est surlignée en vert.');
+        : (skipped ? 'Pas grave, voici la bonne réponse surlignée en vert.'
+                   : 'Pas tout à fait. La bonne réponse est surlignée en vert.');
       html += '<div class="feedback-banner '+bannerClass+'">' + icon(ok?'check':'x',16) + bannerMsg + '</div>';
 
       if(!ok){
         if(q.isSign){
-          html += '<div class="explain-card"><div class="explain-head">'+icon('book',14)+' Ce panneau</div><div class="explain-body"><b>'+escapeHtml(q.signName)+'</b> — '+escapeHtml((SIGN_BY_ID[q.signId]||{}).meaning||'')+'</div></div>';
+          html += '<div class="explain-card"><div class="explain-head">'+icon('book',14)+' Ce panneau</div><div class="explain-body"><b>'+escapeHtml(q.signName)+'</b> : '+escapeHtml((SIGN_BY_ID[q.signId]||{}).meaning||'')+'</div></div>';
         } else {
           var exp = explanationFor(q);
           if(exp){
@@ -2060,8 +2063,8 @@
       '<circle cx="75" cy="75" r="66" fill="none" stroke="'+tierColor+'" stroke-width="12" stroke-linecap="round" stroke-dasharray="'+dash+' '+circumference+'"/>' +
       '</svg><div class="result-ring-label"><b>'+pct+'%</b><span>'+correct+' / '+total+'</span></div></div>';
     html += '<div class="result-badge" style="background:'+tierColor+'22;color:'+tierColor+';">'+tier+'</div>';
-    if(isDiag) html += '<p class="result-sub">C\'est juste ton départ, pas une note. Ta progression est calibrée : les questions ratées reviendront plus souvent.</p>';
-    else if(s.mode === 'exam') html += '<p class="result-sub">Seuil indicatif — vérifie le barème officiel en vigueur pour ton examen.</p>';
+    if(isDiag) html += '<p class="result-sub">C\'est juste ton départ, pas une note. C\'est réglé : les questions ratées reviendront plus souvent.</p>';
+    else if(s.mode === 'exam') html += '<p class="result-sub">Seuil indicatif. Vérifie le barème officiel en vigueur pour ton examen.</p>';
     html += '</div>';
 
     if(isDiag){
@@ -2129,7 +2132,7 @@
     html += '<div style="display:flex;gap:10px;margin-top:20px;">';
     if(isDiag){
       html += '<button class="btn btn-ghost" data-nav="home">Accueil</button>';
-      html += '<button class="btn btn-primary btn-block" data-action="start-daily">'+icon('bolt',16)+' Session du jour</button>';
+      html += '<button class="btn btn-primary btn-block" data-action="start-daily">'+icon('compass',16)+' Session du jour</button>';
     } else {
       if(missed.length) html += '<button class="btn btn-ghost btn-block" data-action="review-missed">Revoir mes erreurs</button>';
       html += '<button class="btn btn-primary btn-block" data-nav="home">Accueil</button>';
@@ -2143,7 +2146,7 @@
   var FICHE_LEAD = {
     II:'Le langage de la route : panneaux, marquages au sol, feux et gestes des agents.',
     III:'Qui passe en premier, et comment doubler sans se mettre en danger.',
-    IV:'S\'arrêter, se garer, manœuvrer — sans gêner ni écoper d\'une amende.',
+    IV:'S\'arrêter, se garer, manœuvrer sans gêner ni écoper d\'une amende.',
     V:'Les vitesses selon la route et les distances à garder pour rester en sécurité.',
     VI:'Les bons réflexes quand un accident se produit devant toi.',
     VII:'Les deux-roues : quel permis pour quelle cylindrée, et à quel âge.',
@@ -2165,7 +2168,7 @@
       });
       html += '</div>';
     });
-    html += '<button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="start-signs">'+icon('bolt',16)+' M\'entraîner sur les panneaux</button>';
+    html += '<button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="start-signs">'+icon('compass',16)+' M\'entraîner sur les panneaux</button>';
     html += '</div>';
     return html;
   }
