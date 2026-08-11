@@ -364,6 +364,8 @@
   .status-body{min-width:0;}
   .status-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--chalk-faint);}
   .status-phrase{font-size:13.5px; color:var(--chalk-dim); line-height:1.4; margin-top:3px;}
+  .streak-note{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:var(--chalk-faint);}
+  .streak-note svg{color:var(--yellow); flex-shrink:0;}
 
   /* ---------- Home : session du jour (action dominante) ---------- */
   .daily-card{
@@ -488,6 +490,9 @@
   .sign-display .sign-svg{width:140px; height:140px; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.4));}
   .sign-inline{display:flex; align-items:center; gap:12px; margin:2px 0 14px; padding:10px 12px; background:var(--asphalt-3); border-radius:var(--radius-md);}
   .sign-inline .sign-svg{width:72px; height:72px; flex-shrink:0;}
+  .scene-display{display:flex; flex-direction:column; align-items:center; gap:6px; margin:6px 0 16px;}
+  .scene-svg{width:100%; max-width:300px; height:auto; border-radius:var(--radius-md); background:var(--asphalt-3);}
+  .scene-cap{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.4px; color:var(--chalk-faint); text-transform:uppercase;}
   .sign-inline-cap{font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--chalk); letter-spacing:0.3px;}
   .tile-signs{background:linear-gradient(135deg, rgba(44,170,107,0.14), rgba(255,255,255,0.02)); border-color:rgba(44,170,107,0.28);}
   .sign-tile-preview{display:flex; gap:5px; flex-shrink:0;}
@@ -655,7 +660,9 @@
       chapterLastVisit: {},  // id chapitre -> timestamp de dernière visite
       totalAnswered: 0,
       totalCorrect: 0,
-      onboarded: false
+      onboarded: false,
+      streak: 0,             // jours consécutifs avec au moins une session
+      lastActiveDate: null   // 'AAAA-M-J' de la dernière session
     };
   }
 
@@ -782,6 +789,52 @@
 
   function markChapterVisited(chapterId){
     if(chapterId && chapterId !== 'ALL'){ progress.chapterLastVisit[chapterId] = Date.now(); }
+  }
+
+  /* Régularité : jours consécutifs avec au moins une session (repère factuel). */
+  function dayStr(d){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+  function touchStreak(){
+    var t = dayStr(new Date());
+    if(progress.lastActiveDate === t) return;      // déjà compté aujourd'hui
+    var y = new Date(); y.setDate(y.getDate()-1);
+    progress.streak = (progress.lastActiveDate === dayStr(y)) ? (progress.streak||0)+1 : 1;
+    progress.lastActiveDate = t;
+  }
+
+  /* Sous-tags (surtout chap. II) dérivés du contenu, pour affiner « quoi bosser ». */
+  function subTag(q){
+    if(q.chapter !== 'II') return null;
+    var code = QSIGN[q.num];
+    if(code){
+      if(/^AB/.test(code)) return 'Priorité & intersections';
+      if(/^AK/.test(code) || /^A/.test(code)) return 'Panneaux de danger';
+      if(/^B/.test(code)) return 'Panneaux d\'interdiction / obligation';
+      if(/^C/.test(code)) return 'Panneaux d\'indication';
+      if(/^[GJ]/.test(code)) return 'Passage à niveau & balises';
+    }
+    var t = q.question.toLowerCase();
+    if(/feu|tricolore|clignotant/.test(t)) return 'Feux tricolores';
+    if(/agent|profil|de face|de dos|bras/.test(t)) return 'Signaux des agents';
+    if(/ligne|marquage|z[ée]bra|hachur|bande|trait|fl[èe]che|continue|discontinue|mixte/.test(t)) return 'Marquages au sol';
+    return 'Généralités';
+  }
+  function weakestSubTag(chapterId){
+    var agg = {};
+    QUESTIONS.forEach(function(q){
+      if(q.chapter !== chapterId) return;
+      var r = progress.perQuestion[String(q.num)];
+      if(!r || !r.seen) return;
+      var tag = subTag(q); if(!tag) return;
+      var a = agg[tag] || (agg[tag] = {seen:0, correct:0});
+      a.seen += r.seen; a.correct += r.correct;
+    });
+    var best = null;
+    Object.keys(agg).forEach(function(tag){
+      var a = agg[tag]; if(a.seen < 3) return;
+      var rate = a.correct/a.seen;
+      if(!best || rate < best.rate){ best = {tag:tag, rate:Math.round(rate*100)}; }
+    });
+    return best;
   }
 
   /* Priorité : combine faible réussite ET ancienneté de la dernière visite. */
@@ -1037,6 +1090,17 @@
   }
   function sgOblig(sym){ return '<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sym; }
   function sgIndic(sym){ return '<rect x="6" y="6" width="88" height="88" rx="9" fill="'+SG_BLU+'"/>'+sym; }
+  var SG_GRN='#39B54A', SG_WAT='#2E7FE0';
+  // danger « chantier » : fond jaune (signalisation temporaire)
+  function sgDangerTemp(sym){
+    return '<path d="M50 7 L95 87 Q97 91 92 91 H8 Q3 91 5 87 Z" fill="'+SG_RED+'"/>'+
+           '<path d="M50 24 L83 82 H17 Z" fill="'+SG_YEL+'"/>'+sym;
+  }
+  // fin de prescription : disque blanc, liseré gris + barre grise
+  function sgFin(sym){
+    return '<circle cx="50" cy="50" r="45" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_GRY+'" stroke-width="6"/>'+sym+'<line x1="24" y1="72" x2="76" y2="28" stroke="'+SG_GRY+'" stroke-width="6"/>';
+  }
+  function sgTxt(t,sz,col,y){ return '<text x="50" y="'+(y||63)+'" font-family="Arial,sans-serif" font-weight="bold" font-size="'+sz+'" fill="'+(col||SG_BLK)+'" text-anchor="middle">'+t+'</text>'; }
 
   function signSvg(id, size){
     var s='';
@@ -1101,6 +1165,52 @@
         s=sgIndic('<text x="50" y="70" font-family="Arial,sans-serif" font-weight="bold" font-size="58" fill="'+SG_WHT+'" text-anchor="middle">P</text>'); break;
       case 'sensUnique':
         s='<rect x="4" y="30" width="92" height="40" rx="5" fill="'+SG_BLU+'"/><path d="M22 50 H74 M74 50 L60 40 M74 50 L60 60" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'; break;
+      /* ---- Panneaux référencés par code dans les questions ---- */
+      case 'A6': s=sgDanger('<path d="M30 74 H70 L64 82 H36 Z" fill="'+SG_BLK+'"/><path d="M50 40 V70 M50 40 L66 66 H50" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M50 44 L36 66 H50 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'A8': s=sgDanger('<rect x="34" y="46" width="30" height="20" rx="2" fill="'+SG_BLK+'"/><rect x="40" y="38" width="10" height="10" fill="'+SG_BLK+'"/><circle cx="40" cy="72" r="4" fill="'+SG_BLK+'"/><circle cx="58" cy="72" r="4" fill="'+SG_BLK+'"/><path d="M64 52 h8" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'A15a1': s=sgDanger('<path d="M30 66 q-2 -18 12 -18 h14 q12 0 12 16 v6 h-6 v-6 h-4 v6 h-6 v-6 h-8 v6 h-6 v-4 q-4 0 -6 -6 z" fill="'+SG_BLK+'"/><path d="M30 52 q-6 -2 -8 -8" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'A15c': s=sgDanger('<path d="M28 70 q4 -14 16 -16 l6 -8 4 2 -3 7 q10 2 14 15 h-6 q-3 -8 -10 -9 l-3 9 h-6 l3 -9 q-6 1 -9 9 z" fill="'+SG_BLK+'"/><circle cx="47" cy="40" r="4" fill="'+SG_BLK+'"/>'); break;
+      case 'A16': s=sgDanger('<path d="M24 74 H74 L30 46 Z" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/>'+sgTxt('10%',13,SG_BLK,70)); break;
+      case 'A18': case 'A18-1': s=sgDanger('<path d="M42 40 V72 M42 40 L36 48 M42 40 L48 48" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M58 72 V40 M58 72 L52 64 M58 72 L64 64" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
+      case 'A19': s=sgDanger('<path d="M66 40 L78 74" stroke="'+SG_BLK+'" stroke-width="5"/><circle cx="46" cy="62" r="5" fill="'+SG_BLK+'"/><circle cx="56" cy="72" r="4" fill="'+SG_BLK+'"/><circle cx="40" cy="74" r="3" fill="'+SG_BLK+'"/>'); break;
+      case 'A20': s=sgDanger('<path d="M40 50 L60 50 L64 60 L36 60 Z" fill="'+SG_BLK+'"/><circle cx="42" cy="63" r="3" fill="'+SG_BLK+'"/><circle cx="58" cy="63" r="3" fill="'+SG_BLK+'"/><path d="M24 74 q6 -5 12 0 q6 5 12 0 q6 -5 12 0 q6 5 12 0" fill="none" stroke="'+SG_WAT+'" stroke-width="4"/>'); break;
+      case 'A21a': case 'A21b': s=sgDanger('<circle cx="38" cy="66" r="9" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><circle cx="64" cy="66" r="9" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M38 66 L50 48 H60 M50 48 L57 66 M46 48 h8" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/>'); break;
+      case 'A25': s=sgDanger('<path d="M50 44 a13 13 0 1 1 -11 6" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M50 44 L44 51 M50 44 L57 49" stroke="'+SG_BLK+'" stroke-width="5" stroke-linecap="round"/>'); break;
+      case 'AB2': s=sgDanger('<path d="M44 74 V44 M44 44 L38 52 M44 44 L50 52" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 46 V74 M60 46 L54 54 M60 46 L66 54" stroke="'+SG_RED+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
+      case 'AK4': s=sgDangerTemp('<rect x="40" y="42" width="20" height="12" rx="3" fill="'+SG_BLK+'"/><rect x="43" y="37" width="13" height="6" rx="2" fill="'+SG_BLK+'"/><circle cx="45" cy="56" r="3" fill="'+SG_BLK+'"/><circle cx="56" cy="56" r="3" fill="'+SG_BLK+'"/><path d="M30 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/><path d="M52 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/>'); break;
+      case 'AK5': s=sgDangerTemp('<circle cx="46" cy="42" r="4.5" fill="'+SG_BLK+'"/><path d="M46 47 V60 M46 51 L38 57 M46 51 L56 53 M46 60 L40 74 M46 60 L52 74" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M56 53 L70 45 M66 41 L74 41 L74 49" stroke="'+SG_BLK+'" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="58" y="66" width="16" height="9" fill="'+SG_BLK+'"/>'); break;
+      case 'AK22': s=sgDangerTemp('<rect x="36" y="46" width="24" height="12" rx="3" fill="'+SG_BLK+'"/><circle cx="42" cy="60" r="3" fill="'+SG_BLK+'"/><circle cx="54" cy="60" r="3" fill="'+SG_BLK+'"/><circle cx="66" cy="48" r="2.5" fill="'+SG_BLK+'"/><circle cx="72" cy="56" r="2" fill="'+SG_BLK+'"/><circle cx="68" cy="64" r="2" fill="'+SG_BLK+'"/>'); break;
+      case 'A3a1': s=sgDanger('<path d="M40 78 L44 46 M60 78 L52 46 L52 40" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
+      case 'B2a': s=sgInter('<path d="M60 70 V52 Q60 44 50 44 H36 M36 44 L44 38 M36 44 L44 50" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B2b': s=sgInter('<path d="M40 70 V52 Q40 44 50 44 H64 M64 44 L56 38 M64 44 L56 50" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B2c': s=sgInter('<path d="M38 66 V46 Q38 38 50 38 Q62 38 62 50 V60 M62 60 L56 54 M62 60 L68 54" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B3-3': s=sgInter('<rect x="24" y="42" width="22" height="16" rx="2" fill="'+SG_RED+'"/><path d="M46 46 h4 l3 -6 h4 v18 h-11 z" fill="'+SG_RED+'"/><rect x="58" y="44" width="16" height="14" rx="3" fill="'+SG_BLK+'"/>'); break;
+      case 'B5c': s='<polygon points="32,4 68,4 96,32 96,68 68,96 32,96 4,68 4,32" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="4"/>'+sgTxt('PÉAGE',15,SG_WHT,56); break;
+      case 'B7a': s=sgInter('<path d="M24 52 h4 l3 -7 h12 l3 7 h2" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><rect x="22" y="52" width="26" height="8" rx="2" fill="'+SG_BLK+'"/><circle cx="60" cy="60" r="6" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M60 60 L66 48 h5" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'B8': s=sgInter('<rect x="24" y="44" width="30" height="16" rx="2" fill="'+SG_BLK+'"/><path d="M54 50 h10 l8 6 v4 H54 z" fill="'+SG_BLK+'"/><circle cx="34" cy="62" r="3" fill="'+SG_BLK+'"/><circle cx="64" cy="62" r="3" fill="'+SG_BLK+'"/>'); break;
+      case 'B9c': s=sgInter('<path d="M30 62 h18 l-3 -12 h-8 z" fill="'+SG_BLK+'"/><circle cx="40" cy="66" r="4" fill="none" stroke="'+SG_BLK+'" stroke-width="3"/><path d="M52 52 q8 -6 14 2 l4 10" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M66 44 l3 4" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'B9g': s=sgInter('<circle cx="36" cy="62" r="7" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><circle cx="62" cy="62" r="7" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M36 62 L46 48 H56 M46 48 L58 62 M52 44 h8" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/>'); break;
+      case 'B10a': s=sgInter('<rect x="20" y="46" width="40" height="14" rx="2" fill="'+SG_BLK+'"/><path d="M60 50 h8 l6 6 v4 H60 z" fill="'+SG_BLK+'"/><circle cx="30" cy="62" r="3" fill="'+SG_BLK+'"/><circle cx="66" cy="62" r="3" fill="'+SG_BLK+'"/>'+sgTxt('10m',10,SG_BLK,40)); break;
+      case 'B12': s=sgInter('<path d="M34 34 L66 34 L50 48 Z" fill="'+SG_BLK+'"/><path d="M34 66 L66 66 L50 52 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'B13': case 'B13a': s=sgInter(sgTxt('5,5',22,SG_BLK,52)+sgTxt('t',16,SG_BLK,70)); break;
+      case 'B15': s=sgInter('<path d="M42 30 V56 M42 56 L36 48 M42 56 L48 48" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 70 V40 M60 70 L54 60 M60 70 L66 60" stroke="'+SG_RED+'" stroke-width="7" fill="none" stroke-linecap="round"/>'); break;
+      case 'B18a': s=sgInter('<rect x="24" y="46" width="30" height="15" rx="2" fill="'+SG_BLK+'"/><circle cx="32" cy="64" r="3" fill="'+SG_BLK+'"/><circle cx="50" cy="64" r="3" fill="'+SG_BLK+'"/><path d="M64 40 q6 6 0 12 q-6 -3 0 -12" fill="'+SG_RED+'"/>'); break;
+      case 'B18b': s=sgInter('<rect x="24" y="46" width="30" height="15" rx="2" fill="'+SG_BLK+'"/><circle cx="32" cy="64" r="3" fill="'+SG_BLK+'"/><circle cx="50" cy="64" r="3" fill="'+SG_BLK+'"/><path d="M66 42 q6 8 0 12 q-6 -4 0 -12" fill="'+SG_WAT+'"/>'); break;
+      case 'B22a': s=sgOblig('<circle cx="36" cy="62" r="8" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><circle cx="62" cy="62" r="8" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><path d="M36 62 L48 46 H58 M48 46 L58 62 M44 46 h8" fill="none" stroke="'+SG_WHT+'" stroke-width="4" stroke-linecap="round"/>'); break;
+      case 'B25': s=sgOblig(sgTxt('30',34,SG_WHT)); break;
+      case 'B26': s=sgOblig('<circle cx="50" cy="52" r="16" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><path d="M38 52 l6 -4 4 6 6 -6 4 6 6 -6 4 6" fill="none" stroke="'+SG_WHT+'" stroke-width="3"/>'); break;
+      case 'B27': s=sgIndic('<rect x="28" y="34" width="44" height="26" rx="4" fill="'+SG_WHT+'"/><line x1="38" y1="34" x2="38" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="50" y1="34" x2="50" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="62" y1="34" x2="62" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><circle cx="38" cy="64" r="3" fill="'+SG_WHT+'"/><circle cx="62" cy="64" r="3" fill="'+SG_WHT+'"/>'); break;
+      case 'B29': s=sgIndic('<path d="M50 32 V64 M50 32 L42 42 M50 32 L58 42" stroke="'+SG_WHT+'" stroke-width="6" fill="none" stroke-linecap="round"/>'+sgTxt('VL',12,SG_WHT,80)); break;
+      case 'B31': s=sgFin(''); break;
+      case 'B34': s=sgFin('<rect x="26" y="44" width="18" height="11" rx="2" fill="'+SG_GRY+'"/><rect x="52" y="44" width="18" height="11" rx="2" fill="'+SG_GRY+'"/>'); break;
+      case 'B34a': s=sgFin('<rect x="24" y="44" width="20" height="12" rx="2" fill="'+SG_GRY+'"/><rect x="52" y="46" width="16" height="10" rx="2" fill="'+SG_GRY+'"/>'); break;
+      case 'B43': s='<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sgTxt('30',34,SG_WHT)+'<line x1="24" y1="72" x2="76" y2="28" stroke="'+SG_GRY+'" stroke-width="7"/>'; break;
+      case 'B45': s=sgIndic('<rect x="28" y="36" width="44" height="24" rx="4" fill="'+SG_WHT+'"/><line x1="40" y1="36" x2="40" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="60" y1="36" x2="60" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="20" y1="78" x2="80" y2="22" stroke="'+SG_RED+'" stroke-width="7"/>'); break;
+      case 'C12': s=sgIndic('<path d="M50 26 V74 M50 26 L38 42 M50 26 L62 42" stroke="'+SG_WHT+'" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'); break;
+      case 'C13': s=sgIndic('<rect x="44" y="30" width="12" height="40" fill="'+SG_WHT+'"/><rect x="30" y="30" width="40" height="12" fill="'+SG_RED+'"/>'); break;
+      case 'G1': s='<rect x="6" y="6" width="88" height="88" rx="10" fill="'+SG_WHT+'"/><path d="M18 18 L82 82 M82 18 L18 82" stroke="'+SG_RED+'" stroke-width="10" stroke-linecap="round"/>'; break;
+      case 'J3': s='<rect x="40" y="12" width="20" height="76" rx="4" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="2"/><rect x="40" y="20" width="20" height="12" fill="'+SG_RED+'"/><rect x="40" y="40" width="20" height="12" fill="'+SG_RED+'"/><rect x="40" y="60" width="20" height="12" fill="'+SG_RED+'"/>'; break;
+      case 'J4': s='<rect x="14" y="30" width="72" height="40" rx="4" fill="'+SG_RED+'"/><path d="M30 40 L46 50 L30 60 M50 40 L66 50 L50 60" fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'; break;
       default: s='<rect x="12" y="12" width="76" height="76" rx="8" fill="#333"/>';
     }
     return sgWrap(s, size);
@@ -1140,33 +1250,108 @@
   var SIGN_BY_ID = {};
   SIGNS.forEach(function(s){ SIGN_BY_ID[s.id] = s; });
 
-  /* Mots-clés très distinctifs → illustration au-dessus d'une question (chap. II). */
-  var SIGN_KEYWORDS = [
-    ['stop', ['panneau stop', 'au stop', 'le stop']],
-    ['cedez', ['cédez le passage', 'cedez le passage']],
-    ['sensInterdit', ['sens interdit']],
-    ['depassementInterdit', ['dépassement interdit', 'interdiction de dépasser', 'interdit de dépasser']],
-    ['dosDane', ['dos d’âne', 'dos d\'âne', 'cassis']],
-    ['passageNiveau', ['passage à niveau']],
-    ['rondPoint', ['sens giratoire', 'rond-point', 'giratoire']],
-    ['prioriteDroite', ['priorité à droite']],
-    ['stationnementInterdit', ['stationnement interdit']]
-  ];
+  /* Table explicite question → code panneau, construite une fois en parcourant
+     QUESTIONS puis figée. Remplace l'ancien matching approximatif par sous-chaînes. */
+  var QSIGN = {
+    15:'C13', 17:'A15c', 18:'A19', 19:'A21a', 22:'AB6', 23:'A1d', 24:'A3a1', 30:'A21b',
+    31:'A20', 32:'A16', 33:'A6', 34:'B6a1', 35:'B6a1', 36:'B6b1', 37:'B0', 38:'B7a',
+    39:'B25', 40:'B21-1', 41:'J4', 43:'A25', 44:'B15', 45:'A18', 46:'A18', 47:'B15',
+    48:'B1', 49:'B8', 50:'B18a', 51:'A1c', 53:'B12', 54:'B34a', 55:'B45', 56:'B27',
+    57:'B9g', 58:'B10a', 59:'B14', 60:'B29', 61:'B8', 62:'B13', 63:'B14', 65:'A7',
+    66:'A7', 67:'A8', 68:'A8', 69:'A13a', 70:'A3', 71:'B1', 72:'B3', 73:'B33',
+    74:'B14', 75:'B15', 76:'B21c1', 77:'B25', 78:'B31', 79:'B33', 80:'B34', 81:'G1',
+    103:'AB2', 104:'AB4', 106:'AB4', 107:'AB3a', 108:'B7b', 109:'B6d', 110:'B9c', 111:'B43',
+    112:'B43', 114:'B2c', 115:'B6a1', 116:'B21b', 117:'B43', 118:'C12', 119:'A21b', 120:'B14',
+    121:'B14', 122:'B14', 127:'A18-1', 128:'B6a1', 129:'J3', 131:'B31', 132:'A1c', 135:'A7-1',
+    136:'B31', 137:'AB2', 138:'AB7', 139:'AB1', 140:'AB2', 141:'AB2', 143:'AK22', 144:'B5c',
+    145:'B14', 146:'B1', 147:'A13b', 148:'B26', 149:'B14', 150:'A15a1', 151:'B43', 155:'AK5',
+    156:'A1d', 157:'B21c2', 159:'AK5', 167:'B6a1', 179:'B22a', 182:'AK4', 191:'A18', 192:'A13a',
+    193:'A13b', 194:'C12', 195:'B7a', 200:'B2b', 201:'B2a', 272:'B3', 273:'B3', 413:'B7b',
+    414:'B6d', 416:'B9c', 427:'B43', 452:'B43', 454:'B2c', 455:'B6a1', 456:'B21b', 457:'B43',
+    468:'C12', 670:'A21b', 671:'B14', 672:'B14', 682:'B14', 687:'B14', 722:'B2a1', 723:'B3-3',
+    724:'B8-1', 725:'B13a', 726:'B29', 727:'B18b', 765:'B34a', 766:'B45', 767:'B27', 769:'B10a'
+  };
+
+  /* Codes réutilisant un dessin déjà présent (même panneau, autre notation/nom). */
+  var SIGN_CODE_ALIAS = {
+    'AB4':'stop','AB3a':'cedez','AB1':'prioriteDroite','AB6':'priorite','AB7':'finPriorite',
+    'B1':'sensInterdit','B0':'circulationInterdite','B3':'depassementInterdit',
+    'B6a1':'stationnementInterdit','B6b1':'stationnementInterdit','B6d':'arretStationnementInterdit',
+    'B14':'vitesse50','B21b':'toutDroit','B21-1':'obligDroite','B21c1':'obligDroite','B21c2':'obligGauche',
+    'A13a':'enfants','A13b':'passagePietons','A7':'passageNiveau','A7-1':'passageNiveau',
+    'A1c':'doubleVirage','A1d':'doubleVirage','A3':'retrecissement',
+    'A21b':'A21a','A18-1':'A18','B7b':'B7a','B8-1':'B8','B13a':'B13','B2a1':'B2a','B33':'B3-3'
+  };
+  function signIdForCode(code){ return SIGN_CODE_ALIAS[code] || code; }
+
+  /* Libellés courts affichés sous l'image. */
+  var CODE_NAME = {
+    'A1c':'Double virage','A1d':'Succession de virages','A3':'Chaussée rétrécie','A3a1':'Chaussée rétrécie (droite)',
+    'A6':'Pont mobile','A7':'Passage à niveau','A7-1':'Passage à niveau','A8':'Passage à niveau sans barrière',
+    'A13a':'Endroit fréquenté par des enfants','A13b':'Passage pour piétons','A15a1':'Animaux domestiques','A15c':'Passage de cavaliers',
+    'A16':'Descente dangereuse','A18':'Circulation dans les deux sens','A18-1':'Circulation dans les deux sens','A19':'Chute de pierres',
+    'A20':'Débouché sur un quai ou une berge','A21a':'Débouché de cyclistes','A21b':'Débouché de cyclistes','A25':'Carrefour à sens giratoire',
+    'AB1':'Priorité à droite','AB2':'Priorité de passage','AB3a':'Cédez le passage','AB4':'Stop','AB6':'Route à caractère prioritaire','AB7':'Fin de priorité',
+    'AK4':'Chaussée glissante (chantier)','AK5':'Travaux','AK22':'Projection de gravillons',
+    'B0':'Circulation interdite','B1':'Sens interdit','B2a':'Interdit de tourner à gauche','B2a1':'Interdit de tourner à gauche',
+    'B2b':'Interdit de tourner à droite','B2c':'Demi-tour interdit','B3':'Dépassement interdit','B3-3':'Dépassement interdit (poids lourds)','B33':'Dépassement interdit (poids lourds)',
+    'B5c':'Arrêt au poste de péage','B6a1':'Stationnement interdit','B6b1':'Stationnement interdit','B6d':'Arrêt et stationnement interdits',
+    'B7a':'Accès interdit aux véhicules à moteur','B7b':'Accès interdit aux véhicules à moteur','B8':'Accès interdit aux camions','B8-1':'Accès interdit aux camions',
+    'B9c':'Interdit aux véhicules à traction animale','B9g':'Accès interdit aux cyclomoteurs','B10a':'Longueur limitée','B12':'Hauteur limitée',
+    'B13':'Poids limité','B13a':'Poids par essieu limité','B14':'Vitesse limitée','B15':'Cédez au sens inverse',
+    'B18a':'Matières explosives interdites','B18b':'Matières polluantes interdites','B21-1':'Direction obligatoire : à droite','B21b':'Direction obligatoire : tout droit',
+    'B21c1':'Tourner à droite (prochaine intersection)','B21c2':'Tourner à gauche (prochaine intersection)','B22a':'Voie réservée aux cycles','B25':'Vitesse minimale obligatoire',
+    'B26':'Chaînes à neige obligatoires','B27':'Voie réservée aux bus','B29':'Voie pour véhicules lents','B31':'Fin des interdictions',
+    'B34':'Fin d\'interdiction de dépasser','B34a':'Fin d\'interdiction de dépasser (PL)','B43':'Fin de vitesse minimale','B45':'Fin de voie réservée aux bus',
+    'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage'
+  };
+  function codeLabel(code){ return CODE_NAME[code] || ('Panneau '+code); }
+
+  /* Illustration d'une question : renvoie le code panneau associé, ou null. */
   function signForQuestion(q){
-    if(!q || q.chapter !== 'II' || q.isSign) return null;
-    var t = String(q.question).toLowerCase();
-    var found = null;
-    for(var i=0;i<SIGN_KEYWORDS.length;i++){
-      var kws = SIGN_KEYWORDS[i][1];
-      for(var j=0;j<kws.length;j++){
-        if(t.indexOf(kws[j]) !== -1){
-          if(found && found !== SIGN_KEYWORDS[i][0]) return null; // ambigu → rien
-          found = SIGN_KEYWORDS[i][0];
-        }
+    if(!q || q.isSign) return null;
+    return QSIGN[q.num] || null;
+  }
+
+  /* ---------------- Schémas de chaussée (vue de dessus) ----------------
+     Reconstitution indicative pour les questions D10/D13 : le nombre de voies
+     et le sens sont fidèles à l'énoncé ; la position exacte du véhicule dans le
+     schéma DGTT d'origine n'est pas connue → étiqueté « schéma reconstitué ».
+     Les questions 334/351/352 (ordre de passage avec agent) ne sont PAS
+     illustrées : la géométrie n'est pas déterminable depuis le texte. */
+  function scCar(x,y,color){
+    return '<rect x="'+x+'" y="'+y+'" width="16" height="26" rx="3" fill="'+color+'"/>'+
+           '<rect x="'+(x+2)+'" y="'+(y+4)+'" width="12" height="7" rx="2" fill="rgba(255,255,255,0.35)"/>';
+  }
+  function scArrow(cx,up){
+    return up ? '<path d="M'+cx+' 30 V16 M'+cx+' 16 l-4 5 M'+cx+' 16 l4 5" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none" stroke-linecap="round"/>'
+              : '<path d="M'+cx+' 16 V30 M'+cx+' 30 l-4 -5 M'+cx+' 30 l4 -5" stroke="rgba(255,255,255,0.5)" stroke-width="2" fill="none" stroke-linecap="round"/>';
+  }
+  function roadScene(lanes, sens, color){
+    lanes = +lanes;
+    var x0=14, roadW=192, laneW=roadW/lanes, mid=Math.floor(lanes/2);
+    var s='<rect x="'+x0+'" y="8" width="'+roadW+'" height="114" rx="6" fill="#2b2f35"/>';
+    s+='<line x1="'+x0+'" y1="8" x2="'+x0+'" y2="122" stroke="#fff" stroke-width="2.5"/>';
+    s+='<line x1="'+(x0+roadW)+'" y1="8" x2="'+(x0+roadW)+'" y2="122" stroke="#fff" stroke-width="2.5"/>';
+    for(var i=1;i<lanes;i++){
+      var lx=x0+i*laneW;
+      if(sens==='double' && i===mid){
+        s+='<line x1="'+(lx-2)+'" y1="8" x2="'+(lx-2)+'" y2="122" stroke="#F0BA1F" stroke-width="2"/>'+
+           '<line x1="'+(lx+2)+'" y1="8" x2="'+(lx+2)+'" y2="122" stroke="#F0BA1F" stroke-width="2"/>';
+      } else {
+        s+='<line x1="'+lx+'" y1="8" x2="'+lx+'" y2="122" stroke="#fff" stroke-width="2" stroke-dasharray="8 8"/>';
       }
     }
-    return found;
+    for(i=0;i<lanes;i++){ var cx=x0+laneW*(i+0.5); s+=scArrow(cx, sens==='unique' || i>=mid); }
+    s+=scCar(x0+laneW*0.5-8, 74, color);       // véhicule coloré (dépassement, voie de gauche)
+    s+=scCar(x0+laneW*1.5-8, 82, '#9aa0a8');    // véhicule dépassé (gris)
+    return '<svg class="scene-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg" role="img">'+s+'</svg>';
   }
+  var ROAD_SCENE = {
+    288:['3','double','#F5C518'], 294:['3','unique','#F5C518'],
+    291:['4','double','#39B54A'], 292:['4','unique','#39B54A']
+  };
+  function sceneFor(q){ return q && ROAD_SCENE[q.num] ? ROAD_SCENE[q.num] : null; }
 
   /* ---------------- App State ---------------- */
   var state = {
@@ -1431,6 +1616,7 @@
       progress.sessionLog.push({date:new Date().toISOString(), mode:s.mode, correct:correctCount, total:base, percent:percent});
       if(progress.sessionLog.length > 40) progress.sessionLog.shift();
     }
+    if(base > 0) touchStreak();
     markChapterVisited(s.chapterScope);
     saveProgress();
 
@@ -1530,6 +1716,9 @@
         '<div class="status-phrase">'+probPhrase(prob)+'</div></div>';
     }
     html += '</div>';
+    if(progress.streak >= 2){
+      html += '<div class="streak-note">'+icon('bolt',13)+'<span>'+progress.streak+' jours d\'affilée — continue comme ça.</span></div>';
+    }
 
     // 2. QUOI FAIRE MAINTENANT — la session du jour, action dominante
     var whyLine;
@@ -1554,10 +1743,12 @@
       var pr = priority.mastery === null
         ? 'Chapitre pas encore commencé — un bon point de départ.'
         : priority.reason;
+      var wst = weakestSubTag(priority.chapter.id);
+      var prText = wst ? ('Travaille surtout : '+wst.tag+' ('+wst.rate+'%)') : pr;
       html += '<button class="priority-card" data-chapter="'+priority.chapter.id+'">' +
         '<div class="chapter-icon" style="width:40px;height:40px;">'+icon(priority.chapter.icon,20)+'</div>' +
         '<div class="priority-body"><span class="priority-kicker">À réviser en priorité</span>' +
-        '<b>'+priority.chapter.title+'</b><span class="priority-reason">'+pr+'</span></div>' +
+        '<b>'+priority.chapter.title+'</b><span class="priority-reason">'+prText+'</span></div>' +
         icon('arrowright',16) +
       '</button>';
     }
@@ -1712,11 +1903,13 @@
       var rObj = DAILY_REASON[rk] || DAILY_REASON['new'];
       html += '<div class="reason-chip reason-'+rk+'">'+rObj.label+' · '+rObj.hint+'</div>';
     }
+    var scn = sceneFor(q);
+    if(scn){ html += '<div class="scene-display">'+roadScene(scn[0],scn[1],scn[2])+'<span class="scene-cap">Schéma reconstitué · '+scn[0]+' voies · '+(scn[1]==='double'?'double sens':'sens unique')+'</span></div>'; }
     if(q.isSign){
       html += '<div class="sign-display">'+signSvg(q.signId, 140)+'</div>';
     } else {
       var sfq = signForQuestion(q);
-      if(sfq){ html += '<div class="sign-inline">'+signSvg(sfq, 88)+'<span class="sign-inline-cap">'+escapeHtml(SIGN_BY_ID[sfq].name)+'</span></div>'; }
+      if(sfq){ html += '<div class="sign-inline">'+signSvg(signIdForCode(sfq), 88)+'<span class="sign-inline-cap">'+escapeHtml(codeLabel(sfq))+'</span></div>'; }
     }
     html += '<div class="question-text">'+escapeHtml(q.question)+'</div>';
     if(q.answers.length > 1) html += '<div class="question-hint">Plusieurs réponses possibles</div>';
@@ -1864,7 +2057,9 @@
         if(q.isSign){
           html += '<div class="missed-sign">'+signSvg(q.signId,64)+'<div class="missed-q" style="margin:0;">'+escapeHtml((SIGN_BY_ID[q.signId]||{}).name||q.question)+'</div></div>';
         } else {
-          html += '<div class="missed-q">'+escapeHtml(q.question)+'</div>';
+          var mc = signForQuestion(q);
+          if(mc){ html += '<div class="missed-sign">'+signSvg(signIdForCode(mc),56)+'<div class="missed-q" style="margin:0;">'+escapeHtml(q.question)+'</div></div>'; }
+          else html += '<div class="missed-q">'+escapeHtml(q.question)+'</div>';
         }
         if(picked.length){
           html += '<div class="missed-line"><span class="tag tag-wrong">Toi</span><span>'+picked.map(function(l){return escapeHtml(q.options[l]);}).join(' · ')+'</span></div>';
