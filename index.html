@@ -347,6 +347,8 @@
 
   .footer-note{text-align:center; font-size:11px; color:var(--chalk-faint); margin-top:34px; line-height:1.6;}
   .footer-credit{display:inline-block; margin-top:8px; font-family:var(--font-display); font-size:12px; letter-spacing:0.6px; color:var(--chalk-dim);}
+  .footer-contact{display:inline-block; margin-top:3px; font-family:var(--font-mono); font-size:12px; letter-spacing:0.5px; color:var(--yellow); text-decoration:none;}
+  .footer-contact:hover{text-decoration:underline;}
 
   a{color:var(--blue);}
 
@@ -1381,7 +1383,7 @@
     html += '<div class="section-title">Ta progression par chapitre</div>';
     html += renderChapterList(true);
 
-    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil.<br><span class="footer-credit">Made by Fresnel SATIGNON</span></div>';
+    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil.<br><span class="footer-credit">Made by Fresnel SATIGNON</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
 
     html += '</div>';
     return html;
