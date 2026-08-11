@@ -482,6 +482,26 @@
   @keyframes popOk{0%{transform:scale(0.96);}60%{transform:scale(1.01);}100%{transform:scale(1);}}
   @keyframes shakeKo{0%,100%{transform:translateX(0);}20%{transform:translateX(-5px);}40%{transform:translateX(5px);}60%{transform:translateX(-3px);}80%{transform:translateX(3px);}}
 
+  /* ---------- Panneaux ---------- */
+  .sign-svg{display:block;}
+  .sign-display{display:flex; justify-content:center; margin:6px 0 16px;}
+  .sign-display .sign-svg{width:140px; height:140px; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.4));}
+  .sign-inline{display:flex; align-items:center; gap:12px; margin:2px 0 14px; padding:10px 12px; background:var(--asphalt-3); border-radius:var(--radius-md);}
+  .sign-inline .sign-svg{width:72px; height:72px; flex-shrink:0;}
+  .sign-inline-cap{font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--chalk); letter-spacing:0.3px;}
+  .tile-signs{background:linear-gradient(135deg, rgba(44,170,107,0.14), rgba(255,255,255,0.02)); border-color:rgba(44,170,107,0.28);}
+  .sign-tile-preview{display:flex; gap:5px; flex-shrink:0;}
+  .sign-tile-preview .sign-svg{width:34px; height:34px;}
+  .missed-sign{display:flex; align-items:center; gap:12px; margin-bottom:10px;}
+  .missed-sign .sign-svg{width:56px; height:56px; flex-shrink:0;}
+  .sign-gallery{margin-top:16px; padding-top:14px; border-top:1px solid rgba(255,255,255,0.08);}
+  .sign-gallery-head{display:flex; align-items:center; gap:7px; font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--chalk); margin-bottom:6px;}
+  .sign-cat{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.6px; text-transform:uppercase; color:var(--yellow); margin:12px 0 8px;}
+  .sign-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;}
+  .sign-item{display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center;}
+  .sign-item .sign-svg{width:52px; height:52px;}
+  .sign-item span{font-size:10.5px; line-height:1.25; color:var(--chalk-dim);}
+
   @media (max-width:380px){
     .tiles-grid{grid-template-columns:1fr 1fr;}
     .hero h1{font-size:28px;}
@@ -1002,6 +1022,152 @@
     return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'+body+'</svg>';
   }
 
+  /* ---------------- Panneaux (SVG dessinés à la main, convention de Vienne) ---------------- */
+  var SG_RED='#D8232A', SG_BLK='#141414', SG_BLU='#143C8B', SG_YEL='#F5C518', SG_WHT='#FFFFFF', SG_GRY='#8A8A8A';
+  function sgWrap(inner, size){
+    size = size || 96;
+    return '<svg class="sign-svg" width="'+size+'" height="'+size+'" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img">'+inner+'</svg>';
+  }
+  function sgDanger(sym){
+    return '<path d="M50 7 L95 87 Q97 91 92 91 H8 Q3 91 5 87 Z" fill="'+SG_RED+'"/>'+
+           '<path d="M50 24 L83 82 H17 Z" fill="'+SG_WHT+'"/>'+sym;
+  }
+  function sgInter(sym){
+    return '<circle cx="50" cy="50" r="45" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="10"/>'+sym;
+  }
+  function sgOblig(sym){ return '<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sym; }
+  function sgIndic(sym){ return '<rect x="6" y="6" width="88" height="88" rx="9" fill="'+SG_BLU+'"/>'+sym; }
+
+  function signSvg(id, size){
+    var s='';
+    switch(id){
+      case 'stop':
+        s='<polygon points="32,4 68,4 96,32 96,68 68,96 32,96 4,68 4,32" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="4"/>'+
+          '<text x="50" y="59" font-family="Arial,sans-serif" font-weight="bold" font-size="23" fill="'+SG_WHT+'" text-anchor="middle">STOP</text>'; break;
+      case 'cedez':
+        s='<path d="M6 14 H94 L50 92 Z" fill="'+SG_WHT+'" stroke="'+SG_RED+'" stroke-width="10" stroke-linejoin="round"/>'; break;
+      case 'priorite':
+        s='<rect x="24" y="24" width="52" height="52" rx="6" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="6"/>'; break;
+      case 'finPriorite':
+        s='<rect x="24" y="24" width="52" height="52" rx="6" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="6"/>'+
+          '<line x1="30" y1="30" x2="70" y2="70" stroke="'+SG_GRY+'" stroke-width="5"/><line x1="36" y1="26" x2="74" y2="64" stroke="'+SG_GRY+'" stroke-width="5"/>'; break;
+      case 'prioriteDroite':
+        s=sgDanger('<path d="M50 42 V76 M33 59 H67" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
+      case 'virageDroite':
+        s=sgDanger('<path d="M42 80 V58 Q42 46 56 46 H60" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M52 38 L64 46 L52 54 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'doubleVirage':
+        s=sgDanger('<path d="M44 82 Q44 64 56 60 Q68 56 68 44 V40" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round"/><path d="M60 34 L72 40 L60 46 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'dosDane':
+        s=sgDanger('<line x1="20" y1="78" x2="80" y2="78" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M28 78 Q50 46 72 78" fill="none" stroke="'+SG_BLK+'" stroke-width="7"/>'); break;
+      case 'chausseeGlissante':
+        s=sgDanger('<rect x="40" y="40" width="22" height="13" rx="3" fill="'+SG_BLK+'"/><rect x="43" y="35" width="14" height="7" rx="2" fill="'+SG_BLK+'"/><circle cx="45" cy="55" r="3.5" fill="'+SG_BLK+'"/><circle cx="57" cy="55" r="3.5" fill="'+SG_BLK+'"/><path d="M26 76 q6 -8 12 0 q6 8 12 0" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M52 76 q6 -8 12 0 q6 8 12 0" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'passagePietons':
+        s=sgDanger('<circle cx="50" cy="40" r="5" fill="'+SG_BLK+'"/><path d="M50 45 L50 63 M50 50 L42 58 M50 50 L58 58 M50 63 L44 76 M50 63 L56 76" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M40 80 H60" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+      case 'enfants':
+        s=sgDanger('<circle cx="42" cy="44" r="4" fill="'+SG_BLK+'"/><path d="M42 48 V62 M42 52 L36 58 M42 52 L48 58 M42 62 L38 74 M42 62 L46 74" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round"/><circle cx="60" cy="46" r="4" fill="'+SG_BLK+'"/><path d="M60 50 V63 M60 54 L54 60 M60 54 L66 60 M60 63 L56 75 M60 63 L64 75" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round"/>'); break;
+      case 'travaux':
+        s=sgDanger('<circle cx="46" cy="40" r="4.5" fill="'+SG_BLK+'"/><path d="M46 45 V60 M46 50 L38 56 M46 50 L56 52 M46 60 L40 74 M46 60 L52 74" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M56 52 L70 44 M66 40 L74 40 L74 48" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round" fill="none"/><rect x="58" y="66" width="18" height="10" fill="'+SG_BLK+'"/>'); break;
+      case 'passageNiveau':
+        s=sgDanger('<rect x="30" y="52" width="8" height="26" fill="'+SG_BLK+'"/><rect x="34" y="48" width="42" height="7" rx="2" transform="rotate(-12 34 48)" fill="'+SG_BLK+'"/>'); break;
+      case 'feuTricolore':
+        s=sgDanger('<rect x="42" y="38" width="16" height="40" rx="4" fill="'+SG_BLK+'"/><circle cx="50" cy="46" r="3.6" fill="'+SG_RED+'"/><circle cx="50" cy="58" r="3.6" fill="'+SG_YEL+'"/><circle cx="50" cy="70" r="3.6" fill="#39B54A"/>'); break;
+      case 'retrecissement':
+        s=sgDanger('<path d="M36 78 L44 44 M64 78 L56 44" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
+      case 'sensInterdit':
+        s='<circle cx="50" cy="50" r="45" fill="'+SG_RED+'"/><rect x="22" y="43" width="56" height="14" rx="2" fill="'+SG_WHT+'"/>'; break;
+      case 'circulationInterdite':
+        s=sgInter(''); break;
+      case 'depassementInterdit':
+        s=sgInter('<rect x="26" y="40" width="18" height="26" rx="4" fill="'+SG_RED+'"/><rect x="56" y="40" width="18" height="26" rx="4" fill="'+SG_BLK+'"/>'); break;
+      case 'vitesse50':
+        s=sgInter('<text x="50" y="63" font-family="Arial,sans-serif" font-weight="bold" font-size="34" fill="'+SG_BLK+'" text-anchor="middle">50</text>'); break;
+      case 'vitesse90':
+        s=sgInter('<text x="50" y="63" font-family="Arial,sans-serif" font-weight="bold" font-size="34" fill="'+SG_BLK+'" text-anchor="middle">90</text>'); break;
+      case 'stationnementInterdit':
+        s='<circle cx="50" cy="50" r="45" fill="'+SG_BLU+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="9"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="9"/>'; break;
+      case 'arretStationnementInterdit':
+        s='<circle cx="50" cy="50" r="45" fill="'+SG_BLU+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="9"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="9"/><line x1="76" y1="24" x2="24" y2="76" stroke="'+SG_RED+'" stroke-width="9"/>'; break;
+      case 'toutDroit':
+        s=sgOblig('<path d="M50 30 V70 M50 30 L38 44 M50 30 L62 44" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+      case 'obligDroite':
+        s=sgOblig('<path d="M30 50 H70 M70 50 L56 38 M70 50 L56 62" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+      case 'obligGauche':
+        s=sgOblig('<path d="M70 50 H30 M30 50 L44 38 M30 50 L44 62" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+      case 'rondPoint':
+        s=sgOblig('<path d="M50 26 a24 24 0 1 1 -21 12" fill="none" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round"/><path d="M50 26 L44 34 M50 26 L58 32" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round"/>'); break;
+      case 'passagePietonsInd':
+        s=sgIndic('<path d="M50 30 L74 74 H26 Z" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="4" fill="'+SG_BLK+'"/><path d="M50 54 V66 M50 58 L44 63 M50 58 L56 63 M50 66 L46 74 M50 66 L54 74" stroke="'+SG_BLK+'" stroke-width="3.4" stroke-linecap="round"/>'); break;
+      case 'parking':
+        s=sgIndic('<text x="50" y="70" font-family="Arial,sans-serif" font-weight="bold" font-size="58" fill="'+SG_WHT+'" text-anchor="middle">P</text>'); break;
+      case 'sensUnique':
+        s='<rect x="4" y="30" width="92" height="40" rx="5" fill="'+SG_BLU+'"/><path d="M22 50 H74 M74 50 L60 40 M74 50 L60 60" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'; break;
+      default: s='<rect x="12" y="12" width="76" height="76" rx="8" fill="#333"/>';
+    }
+    return sgWrap(s, size);
+  }
+
+  var SIGNS = [
+    {id:'stop', cat:'Priorité', name:'Stop', meaning:'Arrêt obligatoire, puis céder le passage.'},
+    {id:'cedez', cat:'Priorité', name:'Cédez le passage', meaning:'Cède le passage aux véhicules venant sur l\'autre route.'},
+    {id:'priorite', cat:'Priorité', name:'Route prioritaire', meaning:'Tu as la priorité aux prochaines intersections.'},
+    {id:'finPriorite', cat:'Priorité', name:'Fin de priorité', meaning:'Tu n\'as plus la priorité, la priorité à droite reprend.'},
+    {id:'prioriteDroite', cat:'Priorité', name:'Priorité à droite', meaning:'Intersection : laisse passer ce qui vient de ta droite.'},
+    {id:'virageDroite', cat:'Danger', name:'Virage à droite', meaning:'Virage dangereux vers la droite : ralentis.'},
+    {id:'doubleVirage', cat:'Danger', name:'Double virage', meaning:'Succession de virages dangereux.'},
+    {id:'dosDane', cat:'Danger', name:'Dos d\'âne', meaning:'Ralentisseur ou bosse : ralentis.'},
+    {id:'chausseeGlissante', cat:'Danger', name:'Chaussée glissante', meaning:'Route glissante : garde tes distances.'},
+    {id:'passagePietons', cat:'Danger', name:'Passage de piétons (danger)', meaning:'Passage de piétons proche : prudence.'},
+    {id:'enfants', cat:'Danger', name:'Enfants', meaning:'Zone fréquentée par des enfants (école…).'},
+    {id:'travaux', cat:'Danger', name:'Travaux', meaning:'Travaux sur la chaussée.'},
+    {id:'passageNiveau', cat:'Danger', name:'Passage à niveau', meaning:'Traversée de voie ferrée avec barrière.'},
+    {id:'feuTricolore', cat:'Danger', name:'Feu tricolore', meaning:'Annonce un feu de signalisation.'},
+    {id:'retrecissement', cat:'Danger', name:'Chaussée rétrécie', meaning:'La route se rétrécit.'},
+    {id:'sensInterdit', cat:'Interdiction', name:'Sens interdit', meaning:'Interdit d\'entrer dans ce sens.'},
+    {id:'circulationInterdite', cat:'Interdiction', name:'Circulation interdite', meaning:'Interdit à tout véhicule, dans les deux sens.'},
+    {id:'depassementInterdit', cat:'Interdiction', name:'Dépassement interdit', meaning:'Interdit de dépasser.'},
+    {id:'vitesse50', cat:'Interdiction', name:'Vitesse limitée à 50', meaning:'Vitesse limitée à 50 km/h.'},
+    {id:'vitesse90', cat:'Interdiction', name:'Vitesse limitée à 90', meaning:'Vitesse limitée à 90 km/h.'},
+    {id:'stationnementInterdit', cat:'Interdiction', name:'Stationnement interdit', meaning:'Stationnement interdit.'},
+    {id:'arretStationnementInterdit', cat:'Interdiction', name:'Arrêt et stationnement interdits', meaning:'Ni arrêt ni stationnement.'},
+    {id:'toutDroit', cat:'Obligation', name:'Tout droit obligatoire', meaning:'Direction obligatoire : tout droit.'},
+    {id:'obligDroite', cat:'Obligation', name:'À droite obligatoire', meaning:'Direction obligatoire : à droite.'},
+    {id:'obligGauche', cat:'Obligation', name:'À gauche obligatoire', meaning:'Direction obligatoire : à gauche.'},
+    {id:'rondPoint', cat:'Obligation', name:'Sens giratoire', meaning:'Rond-point : cède le passage et tourne à droite.'},
+    {id:'passagePietonsInd', cat:'Indication', name:'Passage pour piétons', meaning:'Emplacement d\'un passage pour piétons.'},
+    {id:'parking', cat:'Indication', name:'Stationnement', meaning:'Stationnement autorisé.'},
+    {id:'sensUnique', cat:'Indication', name:'Sens unique', meaning:'Circulation à sens unique.'}
+  ];
+  var SIGN_BY_ID = {};
+  SIGNS.forEach(function(s){ SIGN_BY_ID[s.id] = s; });
+
+  /* Mots-clés très distinctifs → illustration au-dessus d'une question (chap. II). */
+  var SIGN_KEYWORDS = [
+    ['stop', ['panneau stop', 'au stop', 'le stop']],
+    ['cedez', ['cédez le passage', 'cedez le passage']],
+    ['sensInterdit', ['sens interdit']],
+    ['depassementInterdit', ['dépassement interdit', 'interdiction de dépasser', 'interdit de dépasser']],
+    ['dosDane', ['dos d’âne', 'dos d\'âne', 'cassis']],
+    ['passageNiveau', ['passage à niveau']],
+    ['rondPoint', ['sens giratoire', 'rond-point', 'giratoire']],
+    ['prioriteDroite', ['priorité à droite']],
+    ['stationnementInterdit', ['stationnement interdit']]
+  ];
+  function signForQuestion(q){
+    if(!q || q.chapter !== 'II' || q.isSign) return null;
+    var t = String(q.question).toLowerCase();
+    var found = null;
+    for(var i=0;i<SIGN_KEYWORDS.length;i++){
+      var kws = SIGN_KEYWORDS[i][1];
+      for(var j=0;j<kws.length;j++){
+        if(t.indexOf(kws[j]) !== -1){
+          if(found && found !== SIGN_KEYWORDS[i][0]) return null; // ambigu → rien
+          found = SIGN_KEYWORDS[i][0];
+        }
+      }
+    }
+    return found;
+  }
+
   /* ---------------- App State ---------------- */
   var state = {
     view: 'home',
@@ -1100,6 +1266,44 @@
     return newSession('daily', items.map(function(it){return it.q;}), {
       chapterScope:'DAILY', reasons:reasons, counts:counts
     });
+  }
+
+  /* ---------------- Mode « Reconnais le panneau » ---------------- */
+  function signKey(id){ return 'sign_' + id; }
+  function dueSignsList(){
+    var now = Date.now();
+    return SIGNS.filter(function(s){
+      var r = progress.perQuestion[signKey(s.id)];
+      return r && r.seen > 0 && (r.due||0) <= now;
+    }).sort(function(a,b){
+      return progress.perQuestion[signKey(a.id)].due - progress.perQuestion[signKey(b.id)].due;
+    });
+  }
+  function newSignsList(){
+    return SIGNS.filter(function(s){ return !progress.perQuestion[signKey(s.id)]; });
+  }
+  function makeSignQuestion(s){
+    var pool = SIGNS.filter(function(o){ return o.id !== s.id; });
+    var same = shuffle(pool.filter(function(o){ return o.cat === s.cat; }));
+    var other = shuffle(pool.filter(function(o){ return o.cat !== s.cat; }));
+    var distract = same.concat(other).slice(0, 2);
+    var opts = shuffle([s].concat(distract));
+    var letters = ['a','b','c'], options = {}, answer = 'a';
+    opts.forEach(function(o, i){ options[letters[i]] = o.meaning; if(o.id === s.id) answer = letters[i]; });
+    return {
+      num: signKey(s.id), chapter: 'II', isSign: true, signId: s.id, signName: s.name,
+      question: 'Que signifie ce panneau ?', options: options, answers: [answer]
+    };
+  }
+  function buildSignSession(count){
+    count = count || 14;
+    var picked = [], seen = {};
+    function add(s){ if(seen[s.id]) return; seen[s.id] = true; picked.push(s); }
+    dueSignsList().slice(0, Math.ceil(count*0.6)).forEach(add);
+    shuffle(newSignsList()).forEach(function(s){ if(picked.length < count) add(s); });
+    shuffle(SIGNS).forEach(function(s){ if(picked.length < count) add(s); });
+    picked = shuffle(picked).slice(0, count);
+    return newSession('signs', picked.map(makeSignQuestion), {chapterScope:'SIGNS'});
   }
 
   function startTimer(){
@@ -1361,6 +1565,12 @@
     // 4. Autres entraînements (en retrait)
     html += '<div class="section-title">Autres entraînements</div>';
     html += '<div class="tiles-grid">';
+    html += '<button class="tile tile-signs tile-wide" data-action="start-signs">' +
+      '<div style="display:flex;align-items:center;gap:12px;min-width:0;">' +
+        '<div class="sign-tile-preview">'+signSvg('stop',34)+signSvg('cedez',34)+signSvg('vitesse50',34)+'</div>' +
+        '<div style="min-width:0;"><h3>Reconnais le panneau</h3><p>Apprends les panneaux à l\'œil — rapide et visuel.</p></div>' +
+      '</div>' + icon('arrowright',16) +
+    '</button>';
     html += '<button class="tile tile-exam" data-action="start-exam">' +
       '<div class="tile-icon">'+icon('flag',20)+'</div>' +
       '<h3>Examen blanc</h3><p>40 questions, 30 min, en conditions.</p></button>';
@@ -1453,7 +1663,8 @@
 
   var MODE_LABELS = {
     exam:'Examen blanc', diag:'Diagnostic', errors:'Mes erreurs',
-    flagged:'Questions marquées', daily:'Session du jour', practice:'Entraînement'
+    flagged:'Questions marquées', daily:'Session du jour', practice:'Entraînement',
+    signs:'Reconnais le panneau'
   };
   var DAILY_REASON = {
     due:{label:'À revoir', hint:'Tu l\'as déjà croisée — on vérifie que c\'est acquis.'},
@@ -1491,13 +1702,21 @@
 
     html += '<div class="question-card">';
     html += '<div class="question-head">';
-    html += '<span class="question-chip">'+(meta?meta.title:'')+'</span>';
-    html += '<button class="flag-btn'+(flagged?' active':'')+'" data-action="toggle-flag" aria-pressed="'+flagged+'" aria-label="'+(flagged?'Retirer des marquées':'Marquer pour révision')+'" title="'+(flagged?'Marquée — touche pour retirer':'Marquer pour révision')+'">'+icon('bookmark',17)+'</button>';
+    html += '<span class="question-chip">'+(meta?meta.title:'')+(q.isSign?' · Panneau':'')+'</span>';
+    if(!q.isSign){
+      html += '<button class="flag-btn'+(flagged?' active':'')+'" data-action="toggle-flag" aria-pressed="'+flagged+'" aria-label="'+(flagged?'Retirer des marquées':'Marquer pour révision')+'" title="'+(flagged?'Marquée — touche pour retirer':'Marquer pour révision')+'">'+icon('bookmark',17)+'</button>';
+    }
     html += '</div>';
     if(s.mode === 'daily' && s.reasons){
       var rk = s.reasons[s.index] || 'new';
       var rObj = DAILY_REASON[rk] || DAILY_REASON['new'];
       html += '<div class="reason-chip reason-'+rk+'">'+rObj.label+' · '+rObj.hint+'</div>';
+    }
+    if(q.isSign){
+      html += '<div class="sign-display">'+signSvg(q.signId, 140)+'</div>';
+    } else {
+      var sfq = signForQuestion(q);
+      if(sfq){ html += '<div class="sign-inline">'+signSvg(sfq, 88)+'<span class="sign-inline-cap">'+escapeHtml(SIGN_BY_ID[sfq].name)+'</span></div>'; }
     }
     html += '<div class="question-text">'+escapeHtml(q.question)+'</div>';
     if(q.answers.length > 1) html += '<div class="question-hint">Plusieurs réponses possibles</div>';
@@ -1531,9 +1750,13 @@
       html += '<div class="feedback-banner '+bannerClass+'">' + icon(ok?'check':'x',16) + bannerMsg + '</div>';
 
       if(!ok){
-        var exp = explanationFor(q);
-        if(exp){
-          html += '<div class="explain-card"><div class="explain-head">'+icon('book',14)+' Pourquoi</div><div class="explain-body">'+exp+'</div></div>';
+        if(q.isSign){
+          html += '<div class="explain-card"><div class="explain-head">'+icon('book',14)+' Ce panneau</div><div class="explain-body"><b>'+escapeHtml(q.signName)+'</b> — '+escapeHtml((SIGN_BY_ID[q.signId]||{}).meaning||'')+'</div></div>';
+        } else {
+          var exp = explanationFor(q);
+          if(exp){
+            html += '<div class="explain-card"><div class="explain-head">'+icon('book',14)+' Pourquoi</div><div class="explain-body">'+exp+'</div></div>';
+          }
         }
         html += '<button class="fiche-link" data-action="open-fiche" data-chapter="'+q.chapter+'">'+icon('book',15)+'<span>Revoir la fiche : '+(meta?meta.title:'ce chapitre')+'</span>'+icon('arrowright',15)+'</button>';
       }
@@ -1638,7 +1861,11 @@
         var q = x.q, i = x.i;
         var picked = s.selected[i] || [];
         html += '<div class="missed-item">';
-        html += '<div class="missed-q">'+escapeHtml(q.question)+'</div>';
+        if(q.isSign){
+          html += '<div class="missed-sign">'+signSvg(q.signId,64)+'<div class="missed-q" style="margin:0;">'+escapeHtml((SIGN_BY_ID[q.signId]||{}).name||q.question)+'</div></div>';
+        } else {
+          html += '<div class="missed-q">'+escapeHtml(q.question)+'</div>';
+        }
         if(picked.length){
           html += '<div class="missed-line"><span class="tag tag-wrong">Toi</span><span>'+picked.map(function(l){return escapeHtml(q.options[l]);}).join(' · ')+'</span></div>';
         } else {
@@ -1680,6 +1907,23 @@
     XI:'Papiers du véhicule, feux obligatoires et bases de mécanique.'
   };
 
+  function renderSignGallery(){
+    var cats = ['Priorité','Danger','Interdiction','Obligation','Indication'];
+    var html = '<div class="sign-gallery"><div class="sign-gallery-head">'+icon('signal',15)+' Les panneaux à reconnaître</div>';
+    cats.forEach(function(cat){
+      var list = SIGNS.filter(function(s){ return s.cat === cat; });
+      if(!list.length) return;
+      html += '<div class="sign-cat">'+cat+'</div><div class="sign-grid">';
+      list.forEach(function(s){
+        html += '<div class="sign-item">'+signSvg(s.id,54)+'<span>'+escapeHtml(s.name)+'</span></div>';
+      });
+      html += '</div>';
+    });
+    html += '<button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="start-signs">'+icon('bolt',16)+' M\'entraîner sur les panneaux</button>';
+    html += '</div>';
+    return html;
+  }
+
   function renderFiches(){
     var back = (state.fichesReturn === 'quiz' && state.session) ? 'quiz' : 'home';
     var html = '<div class="view">';
@@ -1697,7 +1941,9 @@
       if(FICHE_LEAD[c.id]) html += '<p class="fiche-lead">'+FICHE_LEAD[c.id]+'</p>';
       html += '<ul>';
       items.forEach(function(it){ html += '<li>'+it+'</li>'; });
-      html += '</ul></div></div>';
+      html += '</ul>';
+      if(c.id === 'II'){ html += renderSignGallery(); }
+      html += '</div></div>';
       html += '</div>';
     });
     html += '</div>';
@@ -1727,6 +1973,7 @@
     if(s.questions.length === 0){ toast('Aucune question marquée. Touche le marque-page pendant un quiz pour en ajouter.'); return; }
     state.session = s; goto('quiz');
   }
+  function startSigns(){ state.session = buildSignSession(14); goto('quiz'); }
   function openFiche(chap){
     if(chap) state.ficheOpen[chap] = true;
     state.fichesReturn = state.session ? 'quiz' : 'home';
@@ -1744,7 +1991,8 @@
       'start-daily': startDaily,
       'start-exam': startExam,
       'start-errors': startErrors,
-      'start-flagged': startFlagged
+      'start-flagged': startFlagged,
+      'start-signs': startSigns
     };
     Object.keys(map).forEach(function(act){
       var b = scope.querySelector('[data-action="'+act+'"]');
@@ -1856,6 +2104,7 @@
   }
 
   function bindFichesEvents(){
+    bindCommonActions(document);
     document.querySelectorAll('[data-fiche-toggle]').forEach(function(btn){
       btn.addEventListener('click', function(){
         var id = btn.getAttribute('data-fiche-toggle');
