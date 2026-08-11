@@ -1076,141 +1076,160 @@
   }
 
   /* ---------------- Panneaux (SVG dessinés à la main, convention de Vienne) ---------------- */
-  var SG_RED='#D8232A', SG_BLK='#141414', SG_BLU='#143C8B', SG_YEL='#F5C518', SG_WHT='#FFFFFF', SG_GRY='#8A8A8A';
+  var SG_RED='#C1121C', SG_BLK='#141414', SG_BLU='#003A70', SG_YEL='#FFCC00', SG_WHT='#FFFFFF', SG_GRY='#7A7A7A';
   function sgWrap(inner, size){
     size = size || 96;
     return '<svg class="sign-svg" width="'+size+'" height="'+size+'" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" role="img">'+inner+'</svg>';
   }
+  var SG_GRN='#2E8B45', SG_WAT='#1F6FD0';
+  /* ----- Ratios officiels (viewBox 100), communs à toute une famille -----
+     Triangle danger : équilatéral apex(50,10)/base(8,83)-(92,83) ; liseré rouge
+       ≈ 8 % du côté, uniforme (triangle blanc concentrique) ; 3 coins arrondis
+       (stroke round). Disque interdiction : cerclage rouge = 11 % du diamètre.
+       Disque obligation : fond bleu plein, picto blanc centré. STOP : octogone
+       régulier (arêtes = diagonales), liseré blanc 6 %. Textes : condensés via
+       textLength pour remplir comme un vrai panneau. */
   function sgDanger(sym){
-    return '<path d="M50 7 L95 87 Q97 91 92 91 H8 Q3 91 5 87 Z" fill="'+SG_RED+'"/>'+
-           '<path d="M50 24 L83 82 H17 Z" fill="'+SG_WHT+'"/>'+sym;
+    return '<path d="M50 10 L92 83 L8 83 Z" fill="'+SG_RED+'" stroke="'+SG_RED+'" stroke-width="6" stroke-linejoin="round"/>'+
+           '<path d="M50 25 L79 76 L21 76 Z" fill="'+SG_WHT+'" stroke="'+SG_WHT+'" stroke-width="5" stroke-linejoin="round"/>'+sym;
+  }
+  function sgDangerTemp(sym){
+    return '<path d="M50 10 L92 83 L8 83 Z" fill="'+SG_RED+'" stroke="'+SG_RED+'" stroke-width="6" stroke-linejoin="round"/>'+
+           '<path d="M50 25 L79 76 L21 76 Z" fill="'+SG_YEL+'" stroke="'+SG_YEL+'" stroke-width="5" stroke-linejoin="round"/>'+sym;
   }
   function sgInter(sym){
     return '<circle cx="50" cy="50" r="45" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="10"/>'+sym;
   }
   function sgOblig(sym){ return '<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sym; }
-  function sgIndic(sym){ return '<rect x="6" y="6" width="88" height="88" rx="9" fill="'+SG_BLU+'"/>'+sym; }
-  var SG_GRN='#39B54A', SG_WAT='#2E7FE0';
-  // danger « chantier » : fond jaune (signalisation temporaire)
-  function sgDangerTemp(sym){
-    return '<path d="M50 7 L95 87 Q97 91 92 91 H8 Q3 91 5 87 Z" fill="'+SG_RED+'"/>'+
-           '<path d="M50 24 L83 82 H17 Z" fill="'+SG_YEL+'"/>'+sym;
-  }
-  // fin de prescription : disque blanc, liseré gris + barre grise
+  function sgIndic(sym){ return '<rect x="6" y="6" width="88" height="88" rx="8" fill="'+SG_BLU+'"/>'+sym; }
   function sgFin(sym){
-    return '<circle cx="50" cy="50" r="45" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_GRY+'" stroke-width="6"/>'+sym+'<line x1="24" y1="72" x2="76" y2="28" stroke="'+SG_GRY+'" stroke-width="6"/>';
+    return '<circle cx="50" cy="50" r="45" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_GRY+'" stroke-width="5"/>'+sym+'<line x1="22" y1="74" x2="78" y2="26" stroke="'+SG_GRY+'" stroke-width="7"/>';
   }
-  function sgTxt(t,sz,col,y){ return '<text x="50" y="'+(y||63)+'" font-family="Arial,sans-serif" font-weight="bold" font-size="'+sz+'" fill="'+(col||SG_BLK)+'" text-anchor="middle">'+t+'</text>'; }
+  function sgTxt(t,sz,col,y,tl){
+    return '<text x="50" y="'+(y||63)+'" font-family="\'Arial Narrow\',Arial,sans-serif" font-weight="700" font-size="'+sz+'" fill="'+(col||SG_BLK)+'" text-anchor="middle"'+(tl?' textLength="'+tl+'" lengthAdjust="spacingAndGlyphs"':'')+'>'+t+'</text>';
+  }
+  /* Flèche pleine (pointe en haut par défaut), pivotable via rot degrés. */
+  function sgArrow(col, rot){
+    var a='<path d="M44 70 V48 H34 L50 28 L66 48 H56 V70 Z" fill="'+col+'"/>';
+    return rot ? '<g transform="rotate('+rot+' 50 50)">'+a+'</g>' : a;
+  }
+  function sgArrowSmall(cx, col, rot){
+    var a='<path d="M'+(cx-5)+' 70 V52 H'+(cx-9)+' L'+cx+' 40 L'+(cx+9)+' 52 H'+(cx+5)+' V70 Z" fill="'+col+'"/>';
+    return rot ? '<g transform="rotate('+rot+' '+cx+' 55)">'+a+'</g>' : a;
+  }
+  /* Silhouettes de véhicules (profil), style commun, positionnables. */
+  function sgCar(x,y,s,col){ return '<g transform="translate('+x+' '+y+') scale('+s+')"><path d="M1 15 L6 15 Q7 7 15 7 L19 7 L24 2 L34 2 Q39 2 41 8 L47 9 Q50 10 50 15 L50 17 L1 17 Z" fill="'+col+'"/><circle cx="13" cy="17" r="3.2" fill="'+col+'"/><circle cx="39" cy="17" r="3.2" fill="'+col+'"/></g>'; }
+  function sgTruck(x,y,s,col){ return '<g transform="translate('+x+' '+y+') scale('+s+')"><path d="M1 5 L30 5 L30 17 L1 17 Z" fill="'+col+'"/><path d="M30 8 L40 8 L46 13 L46 17 L30 17 Z" fill="'+col+'"/><circle cx="10" cy="18" r="3.4" fill="'+col+'"/><circle cx="39" cy="18" r="3.4" fill="'+col+'"/></g>'; }
+  function sgMoto(x,y,s,col){ return '<g transform="translate('+x+' '+y+') scale('+s+')"><circle cx="8" cy="16" r="7" fill="none" stroke="'+col+'" stroke-width="3"/><circle cx="36" cy="16" r="7" fill="none" stroke="'+col+'" stroke-width="3"/><path d="M8 16 L20 16 L26 8 M20 16 L30 8 L36 16 M26 8 L33 8" fill="none" stroke="'+col+'" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></g>'; }
+  function sgBike(x,y,s,col){ return '<g transform="translate('+x+' '+y+') scale('+s+')"><circle cx="9" cy="17" r="8" fill="none" stroke="'+col+'" stroke-width="2.6"/><circle cx="37" cy="17" r="8" fill="none" stroke="'+col+'" stroke-width="2.6"/><path d="M9 17 L20 17 L27 6 M20 17 L30 6 L37 17 M27 6 L33 6 M14 6 L20 6" fill="none" stroke="'+col+'" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="17" r="1.6" fill="'+col+'"/></g>'; }
+  function sgPed(x,y,s,col){ return '<g transform="translate('+x+' '+y+') scale('+s+')"><circle cx="10" cy="4" r="4" fill="'+col+'"/><path d="M10 8 Q6 10 6 16 L3 27 L7 27 L9 18 L11 18 L15 27 L19 27 L14 15 Q14 10 12 9 Z" fill="'+col+'"/><path d="M9 11 L2 15 M11 11 L18 13" stroke="'+col+'" stroke-width="2.4" stroke-linecap="round"/></g>'; }
 
   function signSvg(id, size){
     var s='';
     switch(id){
       case 'stop':
-        s='<polygon points="32,4 68,4 96,32 96,68 68,96 32,96 4,68 4,32" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="4"/>'+
-          '<text x="50" y="59" font-family="Arial,sans-serif" font-weight="bold" font-size="23" fill="'+SG_WHT+'" text-anchor="middle">STOP</text>'; break;
+        s='<polygon points="31,4 69,4 96,31 96,69 69,96 31,96 4,69 4,31" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="6"/>'+sgTxt('STOP',26,SG_WHT,59,62); break;
       case 'cedez':
-        s='<path d="M6 14 H94 L50 92 Z" fill="'+SG_WHT+'" stroke="'+SG_RED+'" stroke-width="10" stroke-linejoin="round"/>'; break;
+        s='<path d="M10 15 L90 15 L50 88 Z" fill="'+SG_RED+'" stroke="'+SG_RED+'" stroke-width="6" stroke-linejoin="round"/><path d="M25 24 L75 24 L50 70 Z" fill="'+SG_WHT+'" stroke="'+SG_WHT+'" stroke-width="5" stroke-linejoin="round"/>'; break;
       case 'priorite':
-        s='<rect x="24" y="24" width="52" height="52" rx="6" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="6"/>'; break;
+        s='<rect x="23" y="23" width="54" height="54" rx="5" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="5"/>'; break;
       case 'finPriorite':
-        s='<rect x="24" y="24" width="52" height="52" rx="6" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="6"/>'+
-          '<line x1="30" y1="30" x2="70" y2="70" stroke="'+SG_GRY+'" stroke-width="5"/><line x1="36" y1="26" x2="74" y2="64" stroke="'+SG_GRY+'" stroke-width="5"/>'; break;
+        s='<rect x="23" y="23" width="54" height="54" rx="5" transform="rotate(45 50 50)" fill="'+SG_YEL+'" stroke="'+SG_WHT+'" stroke-width="5"/><line x1="30" y1="30" x2="70" y2="70" stroke="'+SG_BLK+'" stroke-width="4"/><line x1="34" y1="26" x2="74" y2="66" stroke="'+SG_BLK+'" stroke-width="4"/>'; break;
       case 'prioriteDroite':
-        s=sgDanger('<path d="M50 42 V76 M33 59 H67" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
+        s=sgDanger('<rect x="45" y="40" width="10" height="32" fill="'+SG_BLK+'"/><rect x="34" y="51" width="32" height="10" fill="'+SG_BLK+'"/>'); break;
       case 'virageDroite':
-        s=sgDanger('<path d="M42 80 V58 Q42 46 56 46 H60" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M52 38 L64 46 L52 54 Z" fill="'+SG_BLK+'"/>'); break;
+        s=sgDanger('<path d="M43 74 L43 56 Q43 46 55 46 L60 46" fill="none" stroke="'+SG_BLK+'" stroke-width="8" stroke-linecap="round"/><path d="M55 37 L68 46 L55 55 Z" fill="'+SG_BLK+'"/>'); break;
       case 'doubleVirage':
-        s=sgDanger('<path d="M44 82 Q44 64 56 60 Q68 56 68 44 V40" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round"/><path d="M60 34 L72 40 L60 46 Z" fill="'+SG_BLK+'"/>'); break;
+        s=sgDanger('<path d="M42 74 Q42 60 52 56 Q62 52 62 42" fill="none" stroke="'+SG_BLK+'" stroke-width="8" stroke-linecap="round"/><path d="M54 34 L66 42 L53 49 Z" fill="'+SG_BLK+'"/>'); break;
       case 'dosDane':
-        s=sgDanger('<line x1="20" y1="78" x2="80" y2="78" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M28 78 Q50 46 72 78" fill="none" stroke="'+SG_BLK+'" stroke-width="7"/>'); break;
+        s=sgDanger('<path d="M20 72 L32 72 Q50 44 68 72 L80 72" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>'); break;
       case 'chausseeGlissante':
-        s=sgDanger('<rect x="40" y="40" width="22" height="13" rx="3" fill="'+SG_BLK+'"/><rect x="43" y="35" width="14" height="7" rx="2" fill="'+SG_BLK+'"/><circle cx="45" cy="55" r="3.5" fill="'+SG_BLK+'"/><circle cx="57" cy="55" r="3.5" fill="'+SG_BLK+'"/><path d="M26 76 q6 -8 12 0 q6 8 12 0" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M52 76 q6 -8 12 0 q6 8 12 0" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+        s=sgDanger(sgCar(28,44,0.9,SG_BLK)+'<path d="M24 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/><path d="M54 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/>'); break;
       case 'passagePietons':
-        s=sgDanger('<circle cx="50" cy="40" r="5" fill="'+SG_BLK+'"/><path d="M50 45 L50 63 M50 50 L42 58 M50 50 L58 58 M50 63 L44 76 M50 63 L56 76" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M40 80 H60" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
+        s=sgDanger(sgPed(40,40,1.15,SG_BLK)+'<path d="M36 78 H64" stroke="'+SG_BLK+'" stroke-width="3"/>'); break;
       case 'enfants':
-        s=sgDanger('<circle cx="42" cy="44" r="4" fill="'+SG_BLK+'"/><path d="M42 48 V62 M42 52 L36 58 M42 52 L48 58 M42 62 L38 74 M42 62 L46 74" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round"/><circle cx="60" cy="46" r="4" fill="'+SG_BLK+'"/><path d="M60 50 V63 M60 54 L54 60 M60 54 L66 60 M60 63 L56 75 M60 63 L64 75" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round"/>'); break;
+        s=sgDanger(sgPed(30,44,1.0,SG_BLK)+sgPed(48,40,1.25,SG_BLK)); break;
       case 'travaux':
-        s=sgDanger('<circle cx="46" cy="40" r="4.5" fill="'+SG_BLK+'"/><path d="M46 45 V60 M46 50 L38 56 M46 50 L56 52 M46 60 L40 74 M46 60 L52 74" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M56 52 L70 44 M66 40 L74 40 L74 48" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round" fill="none"/><rect x="58" y="66" width="18" height="10" fill="'+SG_BLK+'"/>'); break;
+        s=sgDanger('<circle cx="45" cy="40" r="4.5" fill="'+SG_BLK+'"/><path d="M45 45 Q41 47 41 54 L38 72 L42 72 L44 58 L46 58 L48 62 L52 72 L56 72 L50 55 Q50 48 48 46 Z" fill="'+SG_BLK+'"/><path d="M47 50 L66 42 M62 38 L70 40 L68 48" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="58" y="66" width="16" height="8" fill="'+SG_BLK+'"/>'); break;
       case 'passageNiveau':
-        s=sgDanger('<rect x="30" y="52" width="8" height="26" fill="'+SG_BLK+'"/><rect x="34" y="48" width="42" height="7" rx="2" transform="rotate(-12 34 48)" fill="'+SG_BLK+'"/>'); break;
+        s=sgDanger('<rect x="26" y="50" width="6" height="26" fill="'+SG_BLK+'"/><rect x="68" y="50" width="6" height="26" fill="'+SG_BLK+'"/><rect x="30" y="54" width="40" height="7" fill="'+SG_BLK+'"/><path d="M32 61 L68 54 M32 54 L68 61" stroke="'+SG_BLK+'" stroke-width="2.4"/>'); break;
       case 'feuTricolore':
-        s=sgDanger('<rect x="42" y="38" width="16" height="40" rx="4" fill="'+SG_BLK+'"/><circle cx="50" cy="46" r="3.6" fill="'+SG_RED+'"/><circle cx="50" cy="58" r="3.6" fill="'+SG_YEL+'"/><circle cx="50" cy="70" r="3.6" fill="#39B54A"/>'); break;
+        s=sgDanger('<rect x="41" y="34" width="18" height="42" rx="5" fill="'+SG_BLK+'"/><circle cx="50" cy="43" r="4" fill="'+SG_RED+'"/><circle cx="50" cy="55" r="4" fill="'+SG_YEL+'"/><circle cx="50" cy="67" r="4" fill="'+SG_GRN+'"/>'); break;
       case 'retrecissement':
-        s=sgDanger('<path d="M36 78 L44 44 M64 78 L56 44" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
+        s=sgDanger('<path d="M35 76 L44 42 M65 76 L56 42" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
       case 'sensInterdit':
         s='<circle cx="50" cy="50" r="45" fill="'+SG_RED+'"/><rect x="22" y="43" width="56" height="14" rx="2" fill="'+SG_WHT+'"/>'; break;
       case 'circulationInterdite':
         s=sgInter(''); break;
       case 'depassementInterdit':
-        s=sgInter('<rect x="26" y="40" width="18" height="26" rx="4" fill="'+SG_RED+'"/><rect x="56" y="40" width="18" height="26" rx="4" fill="'+SG_BLK+'"/>'); break;
+        s=sgInter(sgCar(21,42,0.62,SG_RED)+sgCar(52,42,0.62,SG_BLK)); break;
       case 'vitesse50':
-        s=sgInter('<text x="50" y="63" font-family="Arial,sans-serif" font-weight="bold" font-size="34" fill="'+SG_BLK+'" text-anchor="middle">50</text>'); break;
+        s=sgInter(sgTxt('50',36,SG_BLK,62,38)); break;
       case 'vitesse90':
-        s=sgInter('<text x="50" y="63" font-family="Arial,sans-serif" font-weight="bold" font-size="34" fill="'+SG_BLK+'" text-anchor="middle">90</text>'); break;
+        s=sgInter(sgTxt('90',36,SG_BLK,62,38)); break;
       case 'stationnementInterdit':
         s='<circle cx="50" cy="50" r="45" fill="'+SG_BLU+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="9"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="9"/>'; break;
       case 'arretStationnementInterdit':
         s='<circle cx="50" cy="50" r="45" fill="'+SG_BLU+'"/><circle cx="50" cy="50" r="45" fill="none" stroke="'+SG_RED+'" stroke-width="9"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="9"/><line x1="76" y1="24" x2="24" y2="76" stroke="'+SG_RED+'" stroke-width="9"/>'; break;
       case 'toutDroit':
-        s=sgOblig('<path d="M50 30 V70 M50 30 L38 44 M50 30 L62 44" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+        s=sgOblig(sgArrow(SG_WHT)); break;
       case 'obligDroite':
-        s=sgOblig('<path d="M30 50 H70 M70 50 L56 38 M70 50 L56 62" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+        s=sgOblig(sgArrow(SG_WHT,90)); break;
       case 'obligGauche':
-        s=sgOblig('<path d="M70 50 H30 M30 50 L44 38 M30 50 L44 62" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'); break;
+        s=sgOblig(sgArrow(SG_WHT,-90)); break;
       case 'rondPoint':
-        s=sgOblig('<path d="M50 26 a24 24 0 1 1 -21 12" fill="none" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round"/><path d="M50 26 L44 34 M50 26 L58 32" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round"/>'); break;
+        s=sgOblig('<g fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round"><path d="M62 34 a20 20 0 1 1 -24 4"/></g><path d="M56 26 L64 34 L54 39 Z" fill="'+SG_WHT+'"/><path d="M32 40 L40 34 L44 45 Z" fill="'+SG_WHT+'"/>'); break;
       case 'passagePietonsInd':
-        s=sgIndic('<path d="M50 30 L74 74 H26 Z" fill="'+SG_WHT+'"/><circle cx="50" cy="50" r="4" fill="'+SG_BLK+'"/><path d="M50 54 V66 M50 58 L44 63 M50 58 L56 63 M50 66 L46 74 M50 66 L54 74" stroke="'+SG_BLK+'" stroke-width="3.4" stroke-linecap="round"/>'); break;
+        s=sgIndic('<path d="M50 28 L76 74 H24 Z" fill="'+SG_WHT+'"/>'+sgPed(41,44,1.0,SG_BLK)); break;
       case 'parking':
-        s=sgIndic('<text x="50" y="70" font-family="Arial,sans-serif" font-weight="bold" font-size="58" fill="'+SG_WHT+'" text-anchor="middle">P</text>'); break;
+        s=sgIndic(sgTxt('P',60,SG_WHT,72,40)); break;
       case 'sensUnique':
-        s='<rect x="4" y="30" width="92" height="40" rx="5" fill="'+SG_BLU+'"/><path d="M22 50 H74 M74 50 L60 40 M74 50 L60 60" stroke="'+SG_WHT+'" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none"/>'; break;
+        s='<rect x="4" y="32" width="92" height="36" rx="5" fill="'+SG_BLU+'"/><path d="M28 50 H62 V42 L78 50 L62 58 V50 Z" fill="'+SG_WHT+'"/>'; break;
       /* ---- Panneaux référencés par code dans les questions ---- */
-      case 'A6': s=sgDanger('<path d="M30 74 H70 L64 82 H36 Z" fill="'+SG_BLK+'"/><path d="M50 40 V70 M50 40 L66 66 H50" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M50 44 L36 66 H50 Z" fill="'+SG_BLK+'"/>'); break;
-      case 'A8': s=sgDanger('<rect x="34" y="46" width="30" height="20" rx="2" fill="'+SG_BLK+'"/><rect x="40" y="38" width="10" height="10" fill="'+SG_BLK+'"/><circle cx="40" cy="72" r="4" fill="'+SG_BLK+'"/><circle cx="58" cy="72" r="4" fill="'+SG_BLK+'"/><path d="M64 52 h8" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
-      case 'A15a1': s=sgDanger('<path d="M30 66 q-2 -18 12 -18 h14 q12 0 12 16 v6 h-6 v-6 h-4 v6 h-6 v-6 h-8 v6 h-6 v-4 q-4 0 -6 -6 z" fill="'+SG_BLK+'"/><path d="M30 52 q-6 -2 -8 -8" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
-      case 'A15c': s=sgDanger('<path d="M28 70 q4 -14 16 -16 l6 -8 4 2 -3 7 q10 2 14 15 h-6 q-3 -8 -10 -9 l-3 9 h-6 l3 -9 q-6 1 -9 9 z" fill="'+SG_BLK+'"/><circle cx="47" cy="40" r="4" fill="'+SG_BLK+'"/>'); break;
-      case 'A16': s=sgDanger('<path d="M24 74 H74 L30 46 Z" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/>'+sgTxt('10%',13,SG_BLK,70)); break;
-      case 'A18': case 'A18-1': s=sgDanger('<path d="M42 40 V72 M42 40 L36 48 M42 40 L48 48" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M58 72 V40 M58 72 L52 64 M58 72 L64 64" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
-      case 'A19': s=sgDanger('<path d="M66 40 L78 74" stroke="'+SG_BLK+'" stroke-width="5"/><circle cx="46" cy="62" r="5" fill="'+SG_BLK+'"/><circle cx="56" cy="72" r="4" fill="'+SG_BLK+'"/><circle cx="40" cy="74" r="3" fill="'+SG_BLK+'"/>'); break;
-      case 'A20': s=sgDanger('<path d="M40 50 L60 50 L64 60 L36 60 Z" fill="'+SG_BLK+'"/><circle cx="42" cy="63" r="3" fill="'+SG_BLK+'"/><circle cx="58" cy="63" r="3" fill="'+SG_BLK+'"/><path d="M24 74 q6 -5 12 0 q6 5 12 0 q6 -5 12 0 q6 5 12 0" fill="none" stroke="'+SG_WAT+'" stroke-width="4"/>'); break;
-      case 'A21a': case 'A21b': s=sgDanger('<circle cx="38" cy="66" r="9" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><circle cx="64" cy="66" r="9" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M38 66 L50 48 H60 M50 48 L57 66 M46 48 h8" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/>'); break;
-      case 'A25': s=sgDanger('<path d="M50 44 a13 13 0 1 1 -11 6" fill="none" stroke="'+SG_BLK+'" stroke-width="5"/><path d="M50 44 L44 51 M50 44 L57 49" stroke="'+SG_BLK+'" stroke-width="5" stroke-linecap="round"/>'); break;
-      case 'AB2': s=sgDanger('<path d="M44 74 V44 M44 44 L38 52 M44 44 L50 52" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 46 V74 M60 46 L54 54 M60 46 L66 54" stroke="'+SG_RED+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
-      case 'AK4': s=sgDangerTemp('<rect x="40" y="42" width="20" height="12" rx="3" fill="'+SG_BLK+'"/><rect x="43" y="37" width="13" height="6" rx="2" fill="'+SG_BLK+'"/><circle cx="45" cy="56" r="3" fill="'+SG_BLK+'"/><circle cx="56" cy="56" r="3" fill="'+SG_BLK+'"/><path d="M30 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/><path d="M52 74 q5 -7 10 0 q5 7 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5"/>'); break;
-      case 'AK5': s=sgDangerTemp('<circle cx="46" cy="42" r="4.5" fill="'+SG_BLK+'"/><path d="M46 47 V60 M46 51 L38 57 M46 51 L56 53 M46 60 L40 74 M46 60 L52 74" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/><path d="M56 53 L70 45 M66 41 L74 41 L74 49" stroke="'+SG_BLK+'" stroke-width="4" fill="none" stroke-linecap="round"/><rect x="58" y="66" width="16" height="9" fill="'+SG_BLK+'"/>'); break;
-      case 'AK22': s=sgDangerTemp('<rect x="36" y="46" width="24" height="12" rx="3" fill="'+SG_BLK+'"/><circle cx="42" cy="60" r="3" fill="'+SG_BLK+'"/><circle cx="54" cy="60" r="3" fill="'+SG_BLK+'"/><circle cx="66" cy="48" r="2.5" fill="'+SG_BLK+'"/><circle cx="72" cy="56" r="2" fill="'+SG_BLK+'"/><circle cx="68" cy="64" r="2" fill="'+SG_BLK+'"/>'); break;
-      case 'A3a1': s=sgDanger('<path d="M40 78 L44 46 M60 78 L52 46 L52 40" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/>'); break;
-      case 'B2a': s=sgInter('<path d="M60 70 V52 Q60 44 50 44 H36 M36 44 L44 38 M36 44 L44 50" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
-      case 'B2b': s=sgInter('<path d="M40 70 V52 Q40 44 50 44 H64 M64 44 L56 38 M64 44 L56 50" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
-      case 'B2c': s=sgInter('<path d="M38 66 V46 Q38 38 50 38 Q62 38 62 50 V60 M62 60 L56 54 M62 60 L68 54" stroke="'+SG_BLK+'" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
-      case 'B3-3': s=sgInter('<rect x="24" y="42" width="22" height="16" rx="2" fill="'+SG_RED+'"/><path d="M46 46 h4 l3 -6 h4 v18 h-11 z" fill="'+SG_RED+'"/><rect x="58" y="44" width="16" height="14" rx="3" fill="'+SG_BLK+'"/>'); break;
-      case 'B5c': s='<polygon points="32,4 68,4 96,32 96,68 68,96 32,96 4,68 4,32" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="4"/>'+sgTxt('PÉAGE',15,SG_WHT,56); break;
-      case 'B7a': s=sgInter('<path d="M24 52 h4 l3 -7 h12 l3 7 h2" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><rect x="22" y="52" width="26" height="8" rx="2" fill="'+SG_BLK+'"/><circle cx="60" cy="60" r="6" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M60 60 L66 48 h5" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
-      case 'B8': s=sgInter('<rect x="24" y="44" width="30" height="16" rx="2" fill="'+SG_BLK+'"/><path d="M54 50 h10 l8 6 v4 H54 z" fill="'+SG_BLK+'"/><circle cx="34" cy="62" r="3" fill="'+SG_BLK+'"/><circle cx="64" cy="62" r="3" fill="'+SG_BLK+'"/>'); break;
-      case 'B9c': s=sgInter('<path d="M30 62 h18 l-3 -12 h-8 z" fill="'+SG_BLK+'"/><circle cx="40" cy="66" r="4" fill="none" stroke="'+SG_BLK+'" stroke-width="3"/><path d="M52 52 q8 -6 14 2 l4 10" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M66 44 l3 4" stroke="'+SG_BLK+'" stroke-width="4"/>'); break;
-      case 'B9g': s=sgInter('<circle cx="36" cy="62" r="7" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><circle cx="62" cy="62" r="7" fill="none" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M36 62 L46 48 H56 M46 48 L58 62 M52 44 h8" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linecap="round"/>'); break;
-      case 'B10a': s=sgInter('<rect x="20" y="46" width="40" height="14" rx="2" fill="'+SG_BLK+'"/><path d="M60 50 h8 l6 6 v4 H60 z" fill="'+SG_BLK+'"/><circle cx="30" cy="62" r="3" fill="'+SG_BLK+'"/><circle cx="66" cy="62" r="3" fill="'+SG_BLK+'"/>'+sgTxt('10m',10,SG_BLK,40)); break;
-      case 'B12': s=sgInter('<path d="M34 34 L66 34 L50 48 Z" fill="'+SG_BLK+'"/><path d="M34 66 L66 66 L50 52 Z" fill="'+SG_BLK+'"/>'); break;
-      case 'B13': case 'B13a': s=sgInter(sgTxt('5,5',22,SG_BLK,52)+sgTxt('t',16,SG_BLK,70)); break;
-      case 'B15': s=sgInter('<path d="M42 30 V56 M42 56 L36 48 M42 56 L48 48" stroke="'+SG_BLK+'" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 70 V40 M60 70 L54 60 M60 70 L66 60" stroke="'+SG_RED+'" stroke-width="7" fill="none" stroke-linecap="round"/>'); break;
-      case 'B18a': s=sgInter('<rect x="24" y="46" width="30" height="15" rx="2" fill="'+SG_BLK+'"/><circle cx="32" cy="64" r="3" fill="'+SG_BLK+'"/><circle cx="50" cy="64" r="3" fill="'+SG_BLK+'"/><path d="M64 40 q6 6 0 12 q-6 -3 0 -12" fill="'+SG_RED+'"/>'); break;
-      case 'B18b': s=sgInter('<rect x="24" y="46" width="30" height="15" rx="2" fill="'+SG_BLK+'"/><circle cx="32" cy="64" r="3" fill="'+SG_BLK+'"/><circle cx="50" cy="64" r="3" fill="'+SG_BLK+'"/><path d="M66 42 q6 8 0 12 q-6 -4 0 -12" fill="'+SG_WAT+'"/>'); break;
-      case 'B22a': s=sgOblig('<circle cx="36" cy="62" r="8" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><circle cx="62" cy="62" r="8" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><path d="M36 62 L48 46 H58 M48 46 L58 62 M44 46 h8" fill="none" stroke="'+SG_WHT+'" stroke-width="4" stroke-linecap="round"/>'); break;
-      case 'B25': s=sgOblig(sgTxt('30',34,SG_WHT)); break;
-      case 'B26': s=sgOblig('<circle cx="50" cy="52" r="16" fill="none" stroke="'+SG_WHT+'" stroke-width="4"/><path d="M38 52 l6 -4 4 6 6 -6 4 6 6 -6 4 6" fill="none" stroke="'+SG_WHT+'" stroke-width="3"/>'); break;
-      case 'B27': s=sgIndic('<rect x="28" y="34" width="44" height="26" rx="4" fill="'+SG_WHT+'"/><line x1="38" y1="34" x2="38" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="50" y1="34" x2="50" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="62" y1="34" x2="62" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><circle cx="38" cy="64" r="3" fill="'+SG_WHT+'"/><circle cx="62" cy="64" r="3" fill="'+SG_WHT+'"/>'); break;
-      case 'B29': s=sgIndic('<path d="M50 32 V64 M50 32 L42 42 M50 32 L58 42" stroke="'+SG_WHT+'" stroke-width="6" fill="none" stroke-linecap="round"/>'+sgTxt('VL',12,SG_WHT,80)); break;
+      case 'A6': s=sgDanger('<path d="M30 72 H70 L64 78 H36 Z" fill="'+SG_BLK+'"/><line x1="50" y1="34" x2="50" y2="70" stroke="'+SG_BLK+'" stroke-width="3"/><path d="M50 36 L68 66 H50 Z" fill="'+SG_BLK+'"/><path d="M48 36 L32 62 H48 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'A8': s=sgDanger('<path d="M30 66 L30 52 L44 52 L44 44 L52 44 L56 52 L70 52 L70 66 Z" fill="'+SG_BLK+'"/><rect x="46" y="38" width="6" height="8" fill="'+SG_BLK+'"/><circle cx="38" cy="70" r="4" fill="'+SG_BLK+'"/><circle cx="52" cy="70" r="4" fill="'+SG_BLK+'"/><circle cx="64" cy="70" r="3" fill="'+SG_BLK+'"/>'); break;
+      case 'A15a1': s=sgDanger('<path d="M26 58 Q26 50 34 50 L58 50 Q66 50 68 44 L70 46 Q70 54 62 56 L62 68 L58 68 L58 58 L52 58 L52 68 L48 68 L48 58 L38 58 L38 68 L34 68 L34 58 Q28 58 26 58 Z" fill="'+SG_BLK+'"/><path d="M68 44 Q72 42 72 47" fill="none" stroke="'+SG_BLK+'" stroke-width="2.5"/>'); break;
+      case 'A15c': s=sgDanger('<path d="M30 68 Q34 52 48 52 L52 44 L56 46 L53 52 Q62 54 66 66 L61 66 Q58 58 51 57 L48 66 L44 66 L47 57 Q39 58 35 68 Z" fill="'+SG_BLK+'"/><circle cx="52" cy="40" r="4" fill="'+SG_BLK+'"/><path d="M52 44 L56 40" stroke="'+SG_BLK+'" stroke-width="2.5"/>'); break;
+      case 'A16': s=sgDanger('<path d="M26 72 L74 44" stroke="'+SG_BLK+'" stroke-width="4"/><path d="M26 72 L74 72" stroke="'+SG_BLK+'" stroke-width="2" stroke-dasharray="3 3"/>'+sgTxt('12%',12,SG_BLK,68)); break;
+      case 'A18': case 'A18-1': s=sgDanger(sgArrowSmall(42,SG_BLK,0)+sgArrowSmall(58,SG_BLK,180)); break;
+      case 'A19': s=sgDanger('<path d="M70 40 L78 74 L60 66 Z" fill="'+SG_BLK+'"/><path d="M62 42 L70 40 L64 50 Z" fill="'+SG_BLK+'"/><circle cx="44" cy="64" r="5" fill="'+SG_BLK+'"/><circle cx="54" cy="72" r="4" fill="'+SG_BLK+'"/><circle cx="38" cy="73" r="3" fill="'+SG_BLK+'"/>'); break;
+      case 'A20': s=sgDanger(sgCar(30,44,0.75,SG_BLK)+'<path d="M22 74 q6 -5 12 0 q6 5 12 0 q6 -5 12 0 q6 5 12 0" fill="none" stroke="'+SG_WAT+'" stroke-width="4"/>'); break;
+      case 'A21a': case 'A21b': s=sgDanger(sgBike(28,42,0.95,SG_BLK)); break;
+      case 'A25': s=sgDanger('<g fill="none" stroke="'+SG_BLK+'" stroke-width="5" stroke-linecap="round"><path d="M58 42 a13 13 0 1 1 -18 2"/></g><path d="M53 36 L62 42 L52 47 Z" fill="'+SG_BLK+'"/><path d="M35 46 L44 40 L46 51 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'AK4': s=sgDangerTemp(sgCar(28,46,0.85,SG_BLK)+'<path d="M26 74 q5 -6 10 0 q5 6 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3"/><path d="M54 74 q5 -6 10 0 q5 6 10 0" fill="none" stroke="'+SG_BLK+'" stroke-width="3"/>'); break;
+      case 'AK5': s=sgDangerTemp('<circle cx="45" cy="40" r="4.5" fill="'+SG_BLK+'"/><path d="M45 45 Q41 47 41 54 L38 72 L42 72 L44 58 L46 58 L48 62 L52 72 L56 72 L50 55 Q50 48 48 46 Z" fill="'+SG_BLK+'"/><path d="M47 50 L66 42 M62 38 L70 40 L68 48" fill="none" stroke="'+SG_BLK+'" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="58" y="66" width="16" height="8" fill="'+SG_BLK+'"/>'); break;
+      case 'AK22': s=sgDangerTemp(sgCar(30,48,0.8,SG_BLK)+'<circle cx="64" cy="52" r="2.4" fill="'+SG_BLK+'"/><circle cx="70" cy="58" r="2" fill="'+SG_BLK+'"/><circle cx="66" cy="64" r="1.8" fill="'+SG_BLK+'"/>'); break;
+      case 'A3a1': s=sgDanger('<path d="M40 76 L44 42 M62 76 L54 42" stroke="'+SG_BLK+'" stroke-width="6" stroke-linecap="round"/>'); break;
+      case 'B2a': s=sgInter(sgArrow(SG_BLK,-55)+'<line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B2b': s=sgInter(sgArrow(SG_BLK,55)+'<line x1="22" y1="22" x2="78" y2="78" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B2c': s=sgInter('<path d="M38 64 V50 Q38 40 50 40 Q62 40 62 50 V58" fill="none" stroke="'+SG_BLK+'" stroke-width="7" stroke-linecap="round"/><path d="M55 56 L62 64 L69 56 Z" fill="'+SG_BLK+'"/><line x1="24" y1="24" x2="76" y2="76" stroke="'+SG_RED+'" stroke-width="8"/>'); break;
+      case 'B3-3': s=sgInter(sgTruck(20,40,0.6,SG_RED)+sgCar(52,44,0.5,SG_BLK)); break;
+      case 'B5c': s='<polygon points="31,4 69,4 96,31 96,69 69,96 31,96 4,69 4,31" fill="'+SG_RED+'" stroke="'+SG_WHT+'" stroke-width="6"/>'+sgTxt('PÉAGE',15,SG_WHT,56,60); break;
+      case 'B7a': s=sgInter(sgCar(24,44,0.62,SG_BLK)+sgMoto(52,48,0.42,SG_BLK)); break;
+      case 'B8': s=sgInter(sgTruck(24,42,0.72,SG_BLK)); break;
+      case 'B9c': s=sgInter('<path d="M28 64 L46 64 L42 50 L32 50 Z" fill="'+SG_BLK+'"/><circle cx="36" cy="66" r="4" fill="none" stroke="'+SG_BLK+'" stroke-width="2.6"/><path d="M50 48 Q60 44 66 52 L70 64 M66 42 L70 48" fill="none" stroke="'+SG_BLK+'" stroke-width="3.4" stroke-linecap="round"/>'); break;
+      case 'B9g': s=sgInter(sgMoto(28,46,0.62,SG_BLK)); break;
+      case 'B10a': s=sgInter(sgTruck(20,44,0.74,SG_BLK)+sgTxt('10m',10,SG_BLK,40)); break;
+      case 'B12': s=sgInter('<path d="M32 32 L68 32 L50 47 Z" fill="'+SG_BLK+'"/><path d="M32 68 L68 68 L50 53 Z" fill="'+SG_BLK+'"/>'); break;
+      case 'B13': case 'B13a': s=sgInter(sgTxt('5,5t',20,SG_BLK,58,44)); break;
+      case 'B15': s=sgInter(sgArrow(SG_RED,0)+'<g transform="translate(16 0)">'+sgArrow(SG_BLK,180)+'</g>'); break;
+      case 'B18a': s=sgInter(sgTruck(22,44,0.66,SG_BLK)+'<path d="M66 38 q6 6 0 12 q-6 -3 0 -12" fill="'+SG_RED+'"/>'); break;
+      case 'B18b': s=sgInter(sgTruck(22,44,0.66,SG_BLK)+'<path d="M68 40 q6 8 0 12 q-6 -4 0 -12" fill="'+SG_WAT+'"/>'); break;
+      case 'B22a': s=sgOblig(sgBike(28,42,0.95,SG_WHT)); break;
+      case 'B25': s=sgOblig(sgTxt('30',36,SG_WHT,62,38)); break;
+      case 'B26': s=sgOblig('<circle cx="50" cy="50" r="15" fill="none" stroke="'+SG_WHT+'" stroke-width="5"/><circle cx="50" cy="50" r="22" fill="none" stroke="'+SG_WHT+'" stroke-width="2" stroke-dasharray="4 3"/>'); break;
+      case 'B27': s=sgIndic('<g transform="translate(30 34) scale(0.8)"><rect x="0" y="0" width="50" height="30" rx="4" fill="'+SG_WHT+'"/><rect x="6" y="6" width="9" height="9" fill="'+SG_BLU+'"/><rect x="20" y="6" width="9" height="9" fill="'+SG_BLU+'"/><rect x="34" y="6" width="9" height="9" fill="'+SG_BLU+'"/><circle cx="12" cy="33" r="4" fill="'+SG_WHT+'"/><circle cx="38" cy="33" r="4" fill="'+SG_WHT+'"/></g>'); break;
+      case 'B29': s=sgOblig(sgTxt('VÉHI-',13,SG_WHT,46,50)+sgTxt('CULES',13,SG_WHT,60,50)+sgTxt('LENTS',13,SG_WHT,74,50)); break;
       case 'B31': s=sgFin(''); break;
-      case 'B34': s=sgFin('<rect x="26" y="44" width="18" height="11" rx="2" fill="'+SG_GRY+'"/><rect x="52" y="44" width="18" height="11" rx="2" fill="'+SG_GRY+'"/>'); break;
-      case 'B34a': s=sgFin('<rect x="24" y="44" width="20" height="12" rx="2" fill="'+SG_GRY+'"/><rect x="52" y="46" width="16" height="10" rx="2" fill="'+SG_GRY+'"/>'); break;
-      case 'B43': s='<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sgTxt('30',34,SG_WHT)+'<line x1="24" y1="72" x2="76" y2="28" stroke="'+SG_GRY+'" stroke-width="7"/>'; break;
-      case 'B45': s=sgIndic('<rect x="28" y="36" width="44" height="24" rx="4" fill="'+SG_WHT+'"/><line x1="40" y1="36" x2="40" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="60" y1="36" x2="60" y2="60" stroke="'+SG_BLU+'" stroke-width="3"/><line x1="20" y1="78" x2="80" y2="22" stroke="'+SG_RED+'" stroke-width="7"/>'); break;
-      case 'C12': s=sgIndic('<path d="M50 26 V74 M50 26 L38 42 M50 26 L62 42" stroke="'+SG_WHT+'" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>'); break;
-      case 'C13': s=sgIndic('<rect x="44" y="30" width="12" height="40" fill="'+SG_WHT+'"/><rect x="30" y="30" width="40" height="12" fill="'+SG_RED+'"/>'); break;
-      case 'G1': s='<rect x="6" y="6" width="88" height="88" rx="10" fill="'+SG_WHT+'"/><path d="M18 18 L82 82 M82 18 L18 82" stroke="'+SG_RED+'" stroke-width="10" stroke-linecap="round"/>'; break;
-      case 'J3': s='<rect x="40" y="12" width="20" height="76" rx="4" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="2"/><rect x="40" y="20" width="20" height="12" fill="'+SG_RED+'"/><rect x="40" y="40" width="20" height="12" fill="'+SG_RED+'"/><rect x="40" y="60" width="20" height="12" fill="'+SG_RED+'"/>'; break;
-      case 'J4': s='<rect x="14" y="30" width="72" height="40" rx="4" fill="'+SG_RED+'"/><path d="M30 40 L46 50 L30 60 M50 40 L66 50 L50 60" fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'; break;
+      case 'B34': s=sgFin(sgCar(20,42,0.5,SG_GRY)+sgCar(50,42,0.5,SG_GRY)); break;
+      case 'B34a': s=sgFin(sgTruck(20,42,0.5,SG_GRY)+sgCar(52,45,0.42,SG_GRY)); break;
+      case 'B43': s='<circle cx="50" cy="50" r="46" fill="'+SG_BLU+'"/>'+sgTxt('30',36,SG_WHT,62,38)+'<line x1="22" y1="74" x2="78" y2="26" stroke="'+SG_GRY+'" stroke-width="7"/>'; break;
+      case 'B45': s=sgIndic('<g transform="translate(28 36) scale(0.75)"><rect x="0" y="0" width="50" height="30" rx="4" fill="'+SG_WHT+'"/><rect x="6" y="6" width="9" height="9" fill="'+SG_BLU+'"/><rect x="20" y="6" width="9" height="9" fill="'+SG_BLU+'"/><rect x="34" y="6" width="9" height="9" fill="'+SG_BLU+'"/></g><line x1="20" y1="78" x2="80" y2="22" stroke="'+SG_RED+'" stroke-width="7"/>'); break;
+      case 'C12': s=sgIndic(sgArrow(SG_WHT)); break;
+      case 'C13': s=sgIndic('<rect x="45" y="32" width="10" height="38" fill="'+SG_WHT+'"/><rect x="32" y="32" width="36" height="10" fill="'+SG_RED+'"/>'); break;
+      case 'G1': s='<rect x="6" y="6" width="88" height="88" rx="10" fill="'+SG_WHT+'"/><path d="M20 20 L80 80 M80 20 L20 80" stroke="'+SG_RED+'" stroke-width="11" stroke-linecap="round"/>'; break;
+      case 'J3': s='<rect x="40" y="12" width="20" height="76" rx="4" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="2"/><rect x="40" y="20" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="42" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="64" width="20" height="11" fill="'+SG_RED+'"/>'; break;
+      case 'J4': s='<rect x="12" y="30" width="76" height="40" rx="5" fill="'+SG_RED+'"/><path d="M28 40 L44 50 L28 60 M48 40 L64 50 L48 60" fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'; break;
       default: s='<rect x="12" y="12" width="76" height="76" rx="8" fill="#333"/>';
     }
     return sgWrap(s, size);
@@ -1274,7 +1293,7 @@
 
   /* Codes réutilisant un dessin déjà présent (même panneau, autre notation/nom). */
   var SIGN_CODE_ALIAS = {
-    'AB4':'stop','AB3a':'cedez','AB1':'prioriteDroite','AB6':'priorite','AB7':'finPriorite',
+    'AB4':'stop','AB3a':'cedez','AB1':'prioriteDroite','AB2':'prioriteDroite','AB6':'priorite','AB7':'finPriorite',
     'B1':'sensInterdit','B0':'circulationInterdite','B3':'depassementInterdit',
     'B6a1':'stationnementInterdit','B6b1':'stationnementInterdit','B6d':'arretStationnementInterdit',
     'B14':'vitesse50','B21b':'toutDroit','B21-1':'obligDroite','B21c1':'obligDroite','B21c2':'obligGauche',
