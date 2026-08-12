@@ -516,6 +516,9 @@
   .sign-photo{object-fit:contain; display:block;}
   .sign-inline .sign-photo{width:72px; height:72px; flex-shrink:0;}
   .missed-sign .sign-photo{width:56px; height:56px; flex-shrink:0;}
+  .sign-display .sign-photo{width:140px; height:140px; filter:drop-shadow(0 6px 16px rgba(0,0,0,0.4));}
+  .sign-tile-preview .sign-photo{width:34px; height:34px;}
+  .sign-item .sign-photo{width:52px; height:52px;}
   .scene-cap{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.4px; color:var(--chalk-faint); text-transform:uppercase;}
   .sign-inline-cap{flex:1; min-width:0; overflow-wrap:break-word; font-family:var(--font-display); font-size:14px; font-weight:600; color:var(--chalk); letter-spacing:0.3px; line-height:1.25;}
   .tile-signs{background:rgba(44,170,107,0.10); border-color:rgba(44,170,107,0.28);}
@@ -1265,33 +1268,43 @@
     {id:'priorite', cat:'Priorité', name:'Route prioritaire', meaning:'Tu as la priorité aux prochaines intersections.'},
     {id:'finPriorite', cat:'Priorité', name:'Fin de priorité', meaning:'Tu n\'as plus la priorité, la priorité à droite reprend.'},
     {id:'prioriteDroite', cat:'Priorité', name:'Priorité à droite', meaning:'Intersection : laisse passer ce qui vient de ta droite.'},
-    {id:'virageDroite', cat:'Danger', name:'Virage à droite', meaning:'Virage dangereux vers la droite : ralentis.'},
     {id:'doubleVirage', cat:'Danger', name:'Double virage', meaning:'Succession de virages dangereux.'},
-    {id:'dosDane', cat:'Danger', name:'Dos d\'âne', meaning:'Ralentisseur ou bosse : ralentis.'},
     {id:'chausseeGlissante', cat:'Danger', name:'Chaussée glissante', meaning:'Route glissante : garde tes distances.'},
     {id:'passagePietons', cat:'Danger', name:'Passage de piétons (danger)', meaning:'Passage de piétons proche : prudence.'},
     {id:'enfants', cat:'Danger', name:'Enfants', meaning:'Zone fréquentée par des enfants (école…).'},
     {id:'travaux', cat:'Danger', name:'Travaux', meaning:'Travaux sur la chaussée.'},
     {id:'passageNiveau', cat:'Danger', name:'Passage à niveau', meaning:'Traversée de voie ferrée avec barrière.'},
-    {id:'feuTricolore', cat:'Danger', name:'Feu tricolore', meaning:'Annonce un feu de signalisation.'},
     {id:'retrecissement', cat:'Danger', name:'Chaussée rétrécie', meaning:'La route se rétrécit.'},
     {id:'sensInterdit', cat:'Interdiction', name:'Sens interdit', meaning:'Interdit d\'entrer dans ce sens.'},
     {id:'circulationInterdite', cat:'Interdiction', name:'Circulation interdite', meaning:'Interdit à tout véhicule, dans les deux sens.'},
     {id:'depassementInterdit', cat:'Interdiction', name:'Dépassement interdit', meaning:'Interdit de dépasser.'},
     {id:'vitesse50', cat:'Interdiction', name:'Vitesse limitée à 50', meaning:'Vitesse limitée à 50 km/h.'},
-    {id:'vitesse90', cat:'Interdiction', name:'Vitesse limitée à 90', meaning:'Vitesse limitée à 90 km/h.'},
     {id:'stationnementInterdit', cat:'Interdiction', name:'Stationnement interdit', meaning:'Stationnement interdit.'},
     {id:'arretStationnementInterdit', cat:'Interdiction', name:'Arrêt et stationnement interdits', meaning:'Ni arrêt ni stationnement.'},
     {id:'toutDroit', cat:'Obligation', name:'Tout droit obligatoire', meaning:'Direction obligatoire : tout droit.'},
     {id:'obligDroite', cat:'Obligation', name:'À droite obligatoire', meaning:'Direction obligatoire : à droite.'},
     {id:'obligGauche', cat:'Obligation', name:'À gauche obligatoire', meaning:'Direction obligatoire : à gauche.'},
-    {id:'rondPoint', cat:'Obligation', name:'Sens giratoire', meaning:'Rond-point : cède le passage et tourne à droite.'},
-    {id:'passagePietonsInd', cat:'Indication', name:'Passage pour piétons', meaning:'Emplacement d\'un passage pour piétons.'},
-    {id:'parking', cat:'Indication', name:'Stationnement', meaning:'Stationnement autorisé.'},
     {id:'sensUnique', cat:'Indication', name:'Sens unique', meaning:'Circulation à sens unique.'}
   ];
   var SIGN_BY_ID = {};
   SIGNS.forEach(function(s){ SIGN_BY_ID[s.id] = s; });
+
+  /* Bibliothèque « Reconnais le panneau » : chaque panneau pointe vers son code
+     et son image officielle (via signMarkup). Les 7 panneaux sans équivalent
+     dans le manuel DGTT ont été retirés de SIGNS. `B14-50` = vrai « 50 » extrait
+     du manuel (dédié à la biblio, distinct des questions B14 où la vitesse varie). */
+  var SIGNID_CODE = {
+    stop:'AB4', cedez:'AB3a', priorite:'AB6', finPriorite:'AB7', prioriteDroite:'AB1',
+    doubleVirage:'A1c', chausseeGlissante:'AK4', passagePietons:'A13b', enfants:'A13a',
+    travaux:'AK5', passageNiveau:'A7', retrecissement:'A3', sensInterdit:'B1',
+    circulationInterdite:'B0', depassementInterdit:'B3', vitesse50:'B14-50',
+    stationnementInterdit:'B6a1', arretStationnementInterdit:'B6d', toutDroit:'B21b',
+    obligDroite:'B21-1', obligGauche:'B21c2', sensUnique:'C12'
+  };
+  function signIdMarkup(signId, size){
+    var c = SIGNID_CODE[signId];
+    return c ? signMarkup(c, size) : signSvg(signId, size);
+  }
 
   /* Table explicite question → code panneau, construite une fois en parcourant
      QUESTIONS puis figée. Remplace l'ancien matching approximatif par sous-chaînes. */
@@ -1346,7 +1359,7 @@
     'B21c1':'Tourner à droite (prochaine intersection)','B21c2':'Tourner à gauche (prochaine intersection)','B22a':'Voie réservée aux cycles','B25':'Vitesse minimale obligatoire',
     'B26':'Chaînes à neige obligatoires','B27':'Voie réservée aux bus','B29':'Voie pour véhicules lents','B31':'Fin des interdictions',
     'B34':'Fin d\'interdiction de dépasser','B34a':'Fin d\'interdiction de dépasser (PL)','B43':'Fin de vitesse minimale','B45':'Fin de voie réservée aux bus',
-    'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage'
+    'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage','B14-50':'Vitesse limitée à 50'
   };
   function codeLabel(code){ return CODE_NAME[code] || ('Panneau '+code); }
 
@@ -1359,7 +1372,7 @@
    'A6 A7 A7-1 A8 AB1 AB2 AB3a AB4 AB6 AB7 AK22 AK4 AK5 B0 B1 B10a B12 B13 '+
    'B13a B15 B18a B18b B21-1 B21b B21c1 B21c2 B22a B25 B26 B27 B29 B2a B2a1 '+
    'B2b B2c B3 B31 B3-3 B33 B34 B34a B43 B45 B5c B6a1 B6b1 B6d B7a B7b B8 '+
-   'B8-1 B9c B9g C12 C13 G1').split(' ').forEach(function(c){ SIGN_IMG[c]=1; });
+   'B8-1 B9c B9g C12 C13 G1 B14-50').split(' ').forEach(function(c){ SIGN_IMG[c]=1; });
   function signMarkup(code, size){
     if(SIGN_IMG[code]){
       return '<img class="sign-photo" src="img/sign_'+code+'.png" loading="lazy" '+
@@ -1843,7 +1856,7 @@
     html += '<div class="tiles-grid">';
     html += '<button class="tile tile-signs tile-wide" data-action="start-signs">' +
       '<div style="display:flex;align-items:center;gap:12px;min-width:0;">' +
-        '<div class="sign-tile-preview">'+signSvg('stop',34)+signSvg('cedez',34)+signSvg('vitesse50',34)+'</div>' +
+        '<div class="sign-tile-preview">'+signIdMarkup('stop',34)+signIdMarkup('cedez',34)+signIdMarkup('vitesse50',34)+'</div>' +
         '<div style="min-width:0;"><h3>Reconnais le panneau</h3><p>Apprends les panneaux à l\'œil, en un jeu rapide.</p></div>' +
       '</div>' + icon('arrowright',16) +
     '</button>';
@@ -1996,7 +2009,7 @@
       if(scn){ html += '<div class="scene-display">'+roadScene(scn[0],scn[1],scn[2])+'<span class="scene-cap">Schéma reconstitué · '+scn[0]+' voies · '+(scn[1]==='double'?'double sens':'sens unique')+'</span></div>'; }
     }
     if(q.isSign){
-      html += '<div class="sign-display">'+signSvg(q.signId, 140)+'</div>';
+      html += '<div class="sign-display">'+signIdMarkup(q.signId, 140)+'</div>';
     } else {
       var sfq = signForQuestion(q);
       if(sfq){ html += '<div class="sign-inline">'+signMarkup(sfq, 88)+'<span class="sign-inline-cap">'+escapeHtml(codeLabel(sfq))+'</span></div>'; }
@@ -2145,7 +2158,7 @@
         var picked = s.selected[i] || [];
         html += '<div class="missed-item">';
         if(q.isSign){
-          html += '<div class="missed-sign">'+signSvg(q.signId,64)+'<div class="missed-q" style="margin:0;">'+escapeHtml((SIGN_BY_ID[q.signId]||{}).name||q.question)+'</div></div>';
+          html += '<div class="missed-sign">'+signIdMarkup(q.signId,64)+'<div class="missed-q" style="margin:0;">'+escapeHtml((SIGN_BY_ID[q.signId]||{}).name||q.question)+'</div></div>';
         } else {
           var mc = signForQuestion(q);
           if(mc){ html += '<div class="missed-sign">'+signMarkup(mc,56)+'<div class="missed-q" style="margin:0;">'+escapeHtml(q.question)+'</div></div>'; }
@@ -2200,7 +2213,7 @@
       if(!list.length) return;
       html += '<div class="sign-cat">'+cat+'</div><div class="sign-grid">';
       list.forEach(function(s){
-        html += '<div class="sign-item">'+signSvg(s.id,54)+'<span>'+escapeHtml(s.name)+'</span></div>';
+        html += '<div class="sign-item">'+signIdMarkup(s.id,54)+'<span>'+escapeHtml(s.name)+'</span></div>';
       });
       html += '</div>';
     });
