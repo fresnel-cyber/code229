@@ -386,6 +386,13 @@
   .footer-credit{display:inline-block; margin-top:8px; font-family:var(--font-display); font-size:12px; letter-spacing:0.6px; color:var(--chalk-dim);}
   .footer-contact{display:inline-block; margin-top:3px; font-family:var(--font-mono); font-size:12px; letter-spacing:0.5px; color:var(--yellow); text-decoration:none;}
   .footer-contact:hover{text-decoration:underline;}
+  .backup-row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:28px;}
+  .backup-btn{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px;
+    color:var(--chalk-dim); background:var(--asphalt-2); border:1px solid rgba(255,255,255,0.08);
+    border-radius:100px; padding:7px 13px; cursor:pointer; transition:border-color var(--t) var(--ease), color var(--t) var(--ease);
+  }
+  .backup-btn:hover{border-color:rgba(255,255,255,0.24); color:var(--chalk);}
 
   a{color:var(--blue);}
 
@@ -779,6 +786,43 @@
     try{ window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }catch(e){}
   }
 
+  /* Sauvegarde manuelle : la progression ne vit que dans le localStorage de
+     cet appareil (pas de compte). Exporter/Importer un fichier JSON permet
+     de la garder en cas de changement de téléphone, cache vidé, etc. */
+  function exportProgress(){
+    var payload = { __code229_backup: true, exportedAt: new Date().toISOString(), progress: progress };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'code229-progression-' + new Date().toISOString().slice(0,10) + '.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    toast('Progression exportée ✓');
+  }
+
+  function importProgressFile(file){
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var parsed;
+      try{ parsed = JSON.parse(e.target.result); }
+      catch(err){ toast('Fichier invalide : ce n\'est pas un JSON.'); return; }
+      var incoming = (parsed && parsed.__code229_backup) ? parsed.progress : parsed;
+      if(!incoming || typeof incoming !== 'object' || typeof incoming.perQuestion !== 'object'){
+        toast('Ce fichier ne ressemble pas à une sauvegarde CODE 229.');
+        return;
+      }
+      if(!confirm('Remplacer ta progression actuelle par celle de ce fichier ? Cette action est irréversible.')) return;
+      progress = normalizeProgress(incoming);
+      saveProgress();
+      toast('Progression importée ✓');
+      goto('home');
+    };
+    reader.onerror = function(){ toast('Impossible de lire ce fichier.'); };
+    reader.readAsText(file);
+  }
+
   function ensureRec(qnum){
     var key = String(qnum);
     var rec = progress.perQuestion[key];
@@ -1126,8 +1170,15 @@
       case 'layers':
         body = '<path d="M24 7 L42 16 L24 25 L6 16 Z"/><path d="M6 24 L24 33 L42 24"/><path d="M6 32 L24 41 L42 32"/>';
         break;
+      case 'download':
+        body = '<path d="M24 6 V30 M15 21 L24 30 L33 21"/><path d="M8 34 V38 A4 4 0 0 0 12 42 H36 A4 4 0 0 0 40 38 V34"/>';
+        break;
+      case 'upload':
+        body = '<path d="M24 30 V6 M15 15 L24 6 L33 15"/><path d="M8 34 V38 A4 4 0 0 0 12 42 H36 A4 4 0 0 0 40 38 V34"/>';
+        break;
       default:
         body = '<circle cx="24" cy="24" r="16"/>';
+        break;
     }
     return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'+body+'</svg>';
   }
@@ -1912,7 +1963,12 @@
     html += '<div class="section-title">Ta progression par chapitre</div>';
     html += renderChapterList(true);
 
-    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil.<br><span class="footer-credit">Made by Fresnel SATIGNON</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
+    html += '<div class="backup-row">' +
+      '<button class="backup-btn" data-action="export-progress">'+icon('download',13)+'<span>Exporter ma progression</span></button>' +
+      '<button class="backup-btn" data-action="import-progress">'+icon('upload',13)+'<span>Importer une sauvegarde</span></button>' +
+      '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
+    '</div>';
+    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — exportable ci-dessus.<br><span class="footer-credit">Made by Fresnel SATIGNON</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
 
     html += '</div>';
     return html;
@@ -2347,7 +2403,20 @@
     });
   }
 
-  function bindHomeEvents(){ bindCommonActions(document); }
+  function bindHomeEvents(){
+    bindCommonActions(document);
+    var exp = document.querySelector('[data-action="export-progress"]');
+    if(exp) exp.addEventListener('click', exportProgress);
+    var imp = document.querySelector('[data-action="import-progress"]');
+    var fileInput = document.getElementById('import-file-input');
+    if(imp && fileInput){
+      imp.addEventListener('click', function(){ fileInput.click(); });
+      fileInput.addEventListener('change', function(){
+        if(fileInput.files && fileInput.files[0]) importProgressFile(fileInput.files[0]);
+        fileInput.value = '';
+      });
+    }
+  }
 
   function bindDiagnosticEvents(){
     var start = document.querySelector('[data-action="start-diag"]');
