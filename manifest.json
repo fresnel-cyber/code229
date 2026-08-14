@@ -1,0 +1,17 @@
+{
+  "name": "CODE 229 — Préparation au permis (Bénin)",
+  "short_name": "CODE 229",
+  "description": "Révise le code de la route béninois : répétition espacée, session du jour, examen blanc — avec les vrais panneaux du Manuel DGTT.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#14161A",
+  "theme_color": "#14161A",
+  "lang": "fr",
+  "icons": [
+    { "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

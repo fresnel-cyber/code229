@@ -9,6 +9,11 @@
 <link rel="icon" href="img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="img/favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CODE 229">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://code229.vercel.app/">
 <meta property="og:title" content="CODE 229 — Prépare ton permis">
@@ -2537,6 +2542,16 @@
 
 })();
 
+</script>
+<script>
+  // Enregistrement du service worker : révision possible hors-ligne une fois
+  // l'app (et les images vues) mises en cache. N'échoue jamais silencieusement
+  // sur le rendu — juste pas de mode hors-ligne si indisponible (file://, etc.).
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', function(){
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    });
+  }
 </script>
 </body>
 </html>
