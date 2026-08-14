@@ -828,6 +828,56 @@
     reader.readAsText(file);
   }
 
+  /* Mode hors-ligne complet : le service worker (sw.js) met les images en
+     cache au fur et à mesure qu'elles sont vues, mais un candidat qui coupe
+     internet juste après sa première visite n'aurait accès qu'à ce qu'il a
+     déjà croisé. Ce bouton précharge explicitement TOUTES les images de
+     panneaux/scènes d'un coup (~1,3 Mo), à la demande (pas automatique, pour
+     ne pas consommer de data mobile sans prévenir). Le nom de cache doit
+     rester identique à CACHE_NAME dans sw.js. */
+  var OFFLINE_CACHE_NAME = 'code229-v1';
+  var OFFLINE_READY_KEY = 'code229_offline_ready';
+
+  function isOfflineReady(){
+    try{ return localStorage.getItem(OFFLINE_READY_KEY) === '1'; }catch(e){ return false; }
+  }
+  function markOfflineReady(){
+    try{ localStorage.setItem(OFFLINE_READY_KEY, '1'); }catch(e){}
+  }
+  function offlineAssetList(){
+    var urls = [];
+    for(var code in SIGN_IMG){ urls.push('img/sign_' + code + '.png'); }
+    for(var num in QSCENE){ urls.push(QSCENE[num]); }
+    return urls;
+  }
+  function precacheOffline(){
+    if(!('caches' in window)){ toast('Ce navigateur ne supporte pas le mode hors-ligne.'); return; }
+    var btn = document.querySelector('[data-action="precache-offline"]');
+    var label = btn ? btn.querySelector('span') : null;
+    var urls = offlineAssetList();
+    var done = 0, failed = 0;
+    if(btn) btn.disabled = true;
+    caches.open(OFFLINE_CACHE_NAME).then(function(cache){
+      return Promise.all(urls.map(function(u){
+        return fetch(u).then(function(res){
+          if(res && res.ok) return cache.put(u, res); else failed++;
+        }).catch(function(){ failed++; }).then(function(){
+          done++;
+          if(label) label.textContent = 'Téléchargement… ' + done + '/' + urls.length;
+        });
+      }));
+    }).then(function(){
+      if(btn) btn.disabled = false;
+      if(failed === 0){
+        markOfflineReady();
+        toast('Mode hors-ligne complet activé ✓ (' + urls.length + ' images)');
+      } else {
+        toast(failed + ' image(s) non téléchargée(s) — réessaie avec une meilleure connexion.');
+      }
+      render();
+    });
+  }
+
   function ensureRec(qnum){
     var key = String(qnum);
     var rec = progress.perQuestion[key];
@@ -1969,6 +2019,9 @@
     html += renderChapterList(true);
 
     html += '<div class="backup-row">' +
+      (isOfflineReady()
+        ? '<button class="backup-btn" data-action="precache-offline">'+icon('check',13)+'<span>Disponible hors-ligne · actualiser</span></button>'
+        : '<button class="backup-btn" data-action="precache-offline">'+icon('download',13)+'<span>Activer le mode hors-ligne complet</span></button>') +
       '<button class="backup-btn" data-action="export-progress">'+icon('download',13)+'<span>Exporter ma progression</span></button>' +
       '<button class="backup-btn" data-action="import-progress">'+icon('upload',13)+'<span>Importer une sauvegarde</span></button>' +
       '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
@@ -2410,6 +2463,8 @@
 
   function bindHomeEvents(){
     bindCommonActions(document);
+    var pre = document.querySelector('[data-action="precache-offline"]');
+    if(pre) pre.addEventListener('click', precacheOffline);
     var exp = document.querySelector('[data-action="export-progress"]');
     if(exp) exp.addEventListener('click', exportProgress);
     var imp = document.querySelector('[data-action="import-progress"]');
