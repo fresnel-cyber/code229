@@ -399,6 +399,32 @@
   }
   .backup-btn:hover{border-color:rgba(255,255,255,0.24); color:var(--chalk);}
 
+  /* ---------- Mode audio ---------- */
+  .tile-audio .tile-icon{background:rgba(44,170,107,var(--tint-solid)); color:var(--green);}
+  .audio-unsupported{text-align:center; padding:50px 20px; color:var(--chalk-dim); display:flex; flex-direction:column; align-items:center; gap:14px;}
+  .audio-hero{background:var(--asphalt-2); border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius-lg); padding:22px 20px; margin:14px 0; text-align:center;}
+  .audio-chapter-tag{display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--yellow);}
+  .audio-now-text{font-size:16.5px; line-height:1.55; margin:16px 0; min-height:70px; display:flex; align-items:center; justify-content:center; text-align:left;}
+  .audio-now-text b{color:var(--yellow); font-weight:600;}
+  .audio-progress-label{font-family:var(--font-mono); font-size:11.5px; color:var(--chalk-faint); margin-bottom:4px;}
+  .audio-controls{display:flex; align-items:center; justify-content:center; gap:20px; margin:16px 0 4px;}
+  .audio-btn{width:46px; height:46px; border-radius:100px; border:1px solid rgba(255,255,255,0.14); background:var(--asphalt-3); color:var(--chalk); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:border-color var(--t) var(--ease);}
+  .audio-btn:hover{border-color:rgba(255,255,255,0.32);}
+  .audio-btn-play{width:66px; height:66px; background:var(--yellow); color:var(--asphalt); border:none;}
+  .audio-btn-play:hover{background:var(--yellow-deep);}
+  .audio-rate-row{display:flex; gap:8px; justify-content:center; margin-top:18px; flex-wrap:wrap;}
+  .audio-rate-btn{font-family:var(--font-mono); font-size:12px; padding:6px 13px; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:var(--asphalt-3); color:var(--chalk-dim); cursor:pointer;}
+  .audio-rate-btn.active{border-color:var(--yellow); color:var(--yellow); background:rgba(240,186,31,var(--tint-bg));}
+  .audio-voice-select{width:100%; background:var(--asphalt-3); color:var(--chalk); border:1px solid rgba(255,255,255,0.14); border-radius:var(--radius-sm); padding:9px 10px; font-family:var(--font-body); font-size:13px;}
+  .audio-toggle-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:18px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.08); font-size:13px; color:var(--chalk-dim); text-align:left;}
+  .audio-switch{position:relative; width:42px; height:24px; border-radius:100px; background:var(--asphalt-3); border:1px solid rgba(255,255,255,0.16); cursor:pointer; flex-shrink:0;}
+  .audio-switch.on{background:rgba(240,186,31,0.22); border-color:var(--yellow);}
+  .audio-switch i{position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:var(--chalk-dim); transition:transform var(--t) var(--ease), background var(--t) var(--ease);}
+  .audio-switch.on i{transform:translateX(18px); background:var(--yellow);}
+  .audio-chapters{display:flex; gap:8px; overflow-x:auto; padding:4px 2px 10px;}
+  .audio-chip{flex-shrink:0; font-family:var(--font-mono); font-size:12px; padding:8px 14px; border-radius:100px; border:1px solid rgba(255,255,255,0.1); background:var(--asphalt-2); color:var(--chalk-dim); cursor:pointer; white-space:nowrap;}
+  .audio-chip.active{border-color:var(--green); color:var(--green); background:rgba(44,170,107,var(--tint-bg));}
+
   a{color:var(--blue);}
 
   /* ---------- Home : où j'en suis ---------- */
@@ -821,8 +847,8 @@
       if(!confirm('Remplacer ta progression actuelle par celle de ce fichier ? Cette action est irréversible.')) return;
       progress = normalizeProgress(incoming);
       saveProgress();
+      goto('home'); // avant toast() : goto() réécrit tout #app (render), sinon le toast serait effacé aussitôt
       toast('Progression importée ✓');
-      goto('home');
     };
     reader.onerror = function(){ toast('Impossible de lire ce fichier.'); };
     reader.readAsText(file);
@@ -868,13 +894,13 @@
       }));
     }).then(function(){
       if(btn) btn.disabled = false;
+      if(failed === 0) markOfflineReady();
+      render(); // avant toast() : render() réécrit #app (innerHTML), sinon le toast serait effacé aussitôt
       if(failed === 0){
-        markOfflineReady();
         toast('Mode hors-ligne complet activé ✓ (' + urls.length + ' images)');
       } else {
         toast(failed + ' image(s) non téléchargée(s) — réessaie avec une meilleure connexion.');
       }
-      render();
     });
   }
 
@@ -1231,6 +1257,21 @@
       case 'upload':
         body = '<path d="M24 30 V6 M15 15 L24 6 L33 15"/><path d="M8 34 V38 A4 4 0 0 0 12 42 H36 A4 4 0 0 0 40 38 V34"/>';
         break;
+      case 'headphones':
+        body = '<path d="M8 28 V24 A16 16 0 0 1 40 24 V28"/><rect x="4" y="24" width="9" height="15" rx="4"/><rect x="35" y="24" width="9" height="15" rx="4"/>';
+        break;
+      case 'play':
+        body = '<path d="M13 7 L39 24 L13 41 Z" fill="currentColor" stroke="none"/>';
+        break;
+      case 'pause':
+        body = '<rect x="12" y="8" width="9" height="32" rx="2" fill="currentColor" stroke="none"/><rect x="27" y="8" width="9" height="32" rx="2" fill="currentColor" stroke="none"/>';
+        break;
+      case 'skipback':
+        body = '<path d="M35 8 V40 L13 24 Z" fill="currentColor" stroke="none"/><rect x="7" y="8" width="4" height="32" rx="1" fill="currentColor" stroke="none"/>';
+        break;
+      case 'skipfwd':
+        body = '<path d="M13 8 V40 L35 24 Z" fill="currentColor" stroke="none"/><rect x="37" y="8" width="4" height="32" rx="1" fill="currentColor" stroke="none"/>';
+        break;
       default:
         body = '<circle cx="24" cy="24" r="16"/>';
         break;
@@ -1583,6 +1624,7 @@
 
   function goto(view, extra){
     stopTimer();
+    if(state.view === 'audio' && view !== 'audio'){ apStop(); }
     state.view = view;
     if(extra) Object.assign(state, extra);
     render();
@@ -1858,6 +1900,7 @@
       case 'quiz': html += renderQuiz(); break;
       case 'results': html += renderResults(); break;
       case 'fiches': html += renderFiches(); break;
+      case 'audio': html += renderAudio(); break;
       case 'empty': html += renderEmptyView(); break;
       default: html += renderHome();
     }
@@ -1865,6 +1908,7 @@
     bindGlobalEvents();
     if(state.view === 'quiz' && state.session){ renderQuizBody(); startTimer(); }
     if(state.view === 'fiches'){ bindFichesEvents(); }
+    if(state.view === 'audio'){ bindAudioEvents(); }
     if(state.view === 'setup'){ bindSetupEvents(); }
     if(state.view === 'results'){ bindResultsEvents(); }
     if(state.view === 'chapters'){ bindChaptersEvents(); }
@@ -2010,6 +2054,10 @@
       '<h3>Marquées'+(flaggedCnt?' ('+flaggedCnt+')':'')+'</h3><p>Les questions que tu as mises de côté.</p></button>';
     html += '<button class="tile tile-fiches tile-wide" data-nav="fiches">' +
       '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('book',20)+'</div><div><h3>Fiches de révision</h3><p>L\'essentiel de chaque chapitre, à lire d\'un coup d\'œil.</p></div></div>' +
+      icon('chevron',16) +
+      '</button>';
+    html += '<button class="tile tile-audio tile-wide" data-nav="audio">' +
+      '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('headphones',20)+'</div><div><h3>Mode audio</h3><p>Écoute tes fiches, mains libres — écouteurs et en route.</p></div></div>' +
       icon('chevron',16) +
       '</button>';
     html += '</div>';
@@ -2390,6 +2438,264 @@
     });
     html += '</div>';
     return html;
+  }
+
+  function plainText(html){ return String(html).replace(/<[^>]+>/g, ''); }
+
+  /* ---------------- Mode audio (fiches lues à voix haute) ----------------
+     Web Speech API : gratuit, sur l'appareil, aucun backend ni clé API —
+     cohérent avec une app single-file sans compte. En contrepartie la
+     qualité de voix dépend du téléphone, et certains navigateurs (surtout
+     iOS Safari) coupent la synthèse vocale quand l'écran se verrouille :
+     Wake Lock (écran allumé) + Media Session (contrôles sur l'écran de
+     verrouillage) atténuent ça sans pouvoir le garantir à 100 %. */
+  var AP = {
+    list: [],                 // playlist aplatie : {chap, chapTitle, kind, text, display}
+    idx: 0,
+    playing: false,
+    rate: 1,
+    voice: null,               // SpeechSynthesisVoice | null = voix par défaut du navigateur
+    wakeLockOn: true,
+    wakeLock: null,
+    supported: (typeof window !== 'undefined' && 'speechSynthesis' in window),
+    fastEndStreak: 0,          // détecte un moteur vocal muet/défaillant (cf. apSpeakCurrent)
+    lastSpeakStart: 0
+  };
+  var AUDIO_POS_KEY = 'code229_audio_pos';
+
+  function apBuildList(){
+    var list = [];
+    CHAPTER_META.forEach(function(c){
+      var spoken = c.title.replace(/&/g, 'et');
+      list.push({chap:c.id, chapTitle:c.title, kind:'chapter', text:'Chapitre : ' + spoken + '.', display:'<b>Chapitre — ' + c.title + '</b>'});
+      if(FICHE_LEAD[c.id]){
+        list.push({chap:c.id, chapTitle:c.title, kind:'lead', text:FICHE_LEAD[c.id], display:escapeHtml(FICHE_LEAD[c.id])});
+      }
+      (FICHES[c.id] || []).forEach(function(it){
+        list.push({chap:c.id, chapTitle:c.title, kind:'item', text:plainText(it), display:it});
+      });
+    });
+    return list;
+  }
+
+  function apFrenchVoices(){
+    if(!AP.supported) return [];
+    try{ return speechSynthesis.getVoices().filter(function(v){ return /^fr/i.test(v.lang); }); }
+    catch(e){ return []; }
+  }
+
+  function apRestorePosition(){
+    try{
+      var raw = localStorage.getItem(AUDIO_POS_KEY);
+      if(!raw) return;
+      var p = JSON.parse(raw);
+      if(typeof p.idx === 'number' && p.idx >= 0 && p.idx < AP.list.length) AP.idx = p.idx;
+      if(p.rate) AP.rate = p.rate;
+    }catch(e){}
+  }
+  function apSavePosition(){
+    try{ localStorage.setItem(AUDIO_POS_KEY, JSON.stringify({idx:AP.idx, rate:AP.rate})); }catch(e){}
+  }
+
+  function apUpdateMediaSession(){
+    if(!('mediaSession' in navigator)) return;
+    var cur = AP.list[AP.idx];
+    if(!cur) return;
+    try{
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: cur.chapTitle,
+        artist: 'CODE 229 — Fiches audio',
+        album: 'Permis de conduire — Bénin',
+        artwork: [{src:'img/icon-512.png', sizes:'512x512', type:'image/png'}]
+      });
+      navigator.mediaSession.playbackState = AP.playing ? 'playing' : 'paused';
+      navigator.mediaSession.setActionHandler('play', apPlay);
+      navigator.mediaSession.setActionHandler('pause', apPause);
+      navigator.mediaSession.setActionHandler('previoustrack', apPrev);
+      navigator.mediaSession.setActionHandler('nexttrack', apNext);
+    }catch(e){}
+  }
+
+  function apRequestWakeLock(){
+    if(!AP.wakeLockOn || !('wakeLock' in navigator)) return;
+    navigator.wakeLock.request('screen').then(function(wl){ AP.wakeLock = wl; }).catch(function(){});
+  }
+  function apReleaseWakeLock(){
+    if(AP.wakeLock){ AP.wakeLock.release().catch(function(){}); AP.wakeLock = null; }
+  }
+
+  function apSpeakCurrent(){
+    if(!AP.supported) return;
+    speechSynthesis.cancel();
+    var cur = AP.list[AP.idx];
+    if(!cur){ apStop(); return; }
+    var utt = new SpeechSynthesisUtterance(cur.text);
+    utt.lang = 'fr-FR';
+    if(AP.voice) utt.voice = AP.voice;
+    utt.rate = AP.rate;
+    AP.lastSpeakStart = Date.now();
+    utt.onend = function(){
+      if(!AP.playing) return; // pause() appelé entre-temps
+      /* Garde-fou : sur certains téléphones (aucune voix française installée,
+         moteur TTS absent…) speak() « réussit » mais ne produit aucun son et
+         termine quasi instantanément. Sans ce filet, l'auto-avance enchaînerait
+         silencieusement toute la playlist en une fraction de seconde. */
+      var tooFast = (Date.now() - AP.lastSpeakStart) < 300 && cur.text.length > 15;
+      AP.fastEndStreak = tooFast ? AP.fastEndStreak + 1 : 0;
+      if(AP.fastEndStreak >= 3){
+        apStop();
+        render(); // avant toast() : render() réécrit #app (innerHTML), sinon le toast serait effacé aussitôt
+        toast('La lecture vocale ne semble pas fonctionner sur cet appareil. Vérifie qu\'une voix française est installée (réglages du téléphone) ou essaie un autre navigateur.');
+        return;
+      }
+      if(AP.idx < AP.list.length - 1){ AP.idx++; apSavePosition(); apSpeakCurrent(); }
+      else { apStop(); }
+      render();
+    };
+    utt.onerror = function(){
+      if(!AP.playing) return;
+      if(AP.idx < AP.list.length - 1){ AP.idx++; apSpeakCurrent(); }
+      else { apStop(); }
+      render();
+    };
+    speechSynthesis.speak(utt);
+    apUpdateMediaSession();
+  }
+
+  function apPlay(){
+    if(!AP.supported) return;
+    if(!AP.list.length) AP.list = apBuildList();
+    AP.playing = true;
+    AP.fastEndStreak = 0;
+    apRequestWakeLock();
+    apSpeakCurrent();
+    render();
+  }
+  function apPause(){
+    AP.playing = false;
+    speechSynthesis.cancel();
+    apReleaseWakeLock();
+    apUpdateMediaSession();
+    render();
+  }
+  function apStop(){
+    AP.playing = false;
+    if(AP.supported) speechSynthesis.cancel();
+    apReleaseWakeLock();
+  }
+  function apGoto(i){
+    if(!AP.list.length) AP.list = apBuildList();
+    AP.idx = Math.max(0, Math.min(AP.list.length - 1, i));
+    AP.fastEndStreak = 0;
+    apSavePosition();
+    if(AP.playing) apSpeakCurrent();
+    render();
+  }
+  function apNext(){ apGoto(AP.idx + 1); }
+  function apPrev(){ apGoto(AP.idx - 1); }
+  function apSetRate(r){
+    AP.rate = r; apSavePosition();
+    if(AP.playing) apSpeakCurrent(); else render();
+  }
+  function apSetVoice(voiceURI){
+    var v = apFrenchVoices().find(function(x){ return x.voiceURI === voiceURI; });
+    AP.voice = v || null;
+    if(AP.playing) apSpeakCurrent(); else render();
+  }
+  function apJumpToChapter(chapId){
+    if(!AP.list.length) AP.list = apBuildList();
+    var i = AP.list.findIndex(function(it){ return it.chap === chapId; });
+    apGoto(i >= 0 ? i : 0);
+  }
+
+  function renderAudio(){
+    var html = '<div class="view">';
+    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Retour à l\'accueil">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mode audio</h2></div></div>';
+
+    if(!AP.supported){
+      html += '<div class="audio-unsupported">'+icon('headphones',36)+'<p>La lecture à voix haute n\'est pas prise en charge par ce navigateur.<br>Essaie avec Chrome ou le navigateur par défaut de ton téléphone.</p></div>';
+      html += '</div>';
+      return html;
+    }
+
+    if(!AP.list.length){ AP.list = apBuildList(); apRestorePosition(); }
+    var cur = AP.list[AP.idx] || AP.list[0];
+    var chapIdx = CHAPTER_META.findIndex(function(c){ return c.id === cur.chap; });
+
+    html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">Les fiches de révision lues à voix haute — écouteurs, et c\'est parti.</p>';
+
+    html += '<div class="audio-hero">';
+    html += '<div class="audio-chapter-tag">'+icon('headphones',13)+' '+cur.chapTitle+'</div>';
+    html += '<div class="audio-now-text">'+cur.display+'</div>';
+    html += '<div class="audio-progress-label">'+(AP.idx+1)+' / '+AP.list.length+' · Chapitre '+(chapIdx+1)+'/'+CHAPTER_META.length+'</div>';
+    html += '<div class="audio-controls">';
+    html += '<button class="audio-btn" data-action="audio-prev" aria-label="Précédent">'+icon('skipback',18)+'</button>';
+    html += '<button class="audio-btn audio-btn-play" data-action="audio-toggle" aria-label="'+(AP.playing?'Pause':'Lecture')+'">'+icon(AP.playing?'pause':'play',24)+'</button>';
+    html += '<button class="audio-btn" data-action="audio-next" aria-label="Suivant">'+icon('skipfwd',18)+'</button>';
+    html += '</div>';
+
+    html += '<div class="audio-rate-row">';
+    [0.8,1,1.25,1.5].forEach(function(r){
+      html += '<button class="audio-rate-btn'+(AP.rate===r?' active':'')+'" data-rate="'+r+'">'+r+'×</button>';
+    });
+    html += '</div>';
+
+    var voices = apFrenchVoices();
+    if(voices.length > 1){
+      html += '<div style="margin-top:14px;"><select class="audio-voice-select" id="audio-voice-select">';
+      html += '<option value="">Voix par défaut</option>';
+      voices.forEach(function(v){
+        var sel = (AP.voice && AP.voice.voiceURI === v.voiceURI) ? ' selected' : '';
+        html += '<option value="'+escapeHtml(v.voiceURI)+'"'+sel+'>'+escapeHtml(v.name)+'</option>';
+      });
+      html += '</select></div>';
+    }
+
+    html += '<div class="audio-toggle-row"><span>Garder l\'écran allumé pendant la lecture</span><div class="audio-switch'+(AP.wakeLockOn?' on':'')+'" data-action="audio-wakelock-toggle" role="switch" aria-checked="'+AP.wakeLockOn+'"><i></i></div></div>';
+    html += '</div>';
+
+    html += '<div class="section-title">Sauter à un chapitre</div>';
+    html += '<div class="audio-chapters">';
+    CHAPTER_META.forEach(function(c){
+      html += '<button class="audio-chip'+(c.id===cur.chap?' active':'')+'" data-chapter-jump="'+c.id+'">'+c.title+'</button>';
+    });
+    html += '</div>';
+
+    html += '</div>';
+    return html;
+  }
+
+  function bindAudioEvents(){
+    if(!AP.supported) return;
+    var toggle = document.querySelector('[data-action="audio-toggle"]');
+    if(toggle) toggle.addEventListener('click', function(){ AP.playing ? apPause() : apPlay(); });
+    var prev = document.querySelector('[data-action="audio-prev"]');
+    if(prev) prev.addEventListener('click', apPrev);
+    var next = document.querySelector('[data-action="audio-next"]');
+    if(next) next.addEventListener('click', apNext);
+    document.querySelectorAll('[data-rate]').forEach(function(b){
+      b.addEventListener('click', function(){ apSetRate(parseFloat(b.getAttribute('data-rate'))); });
+    });
+    var wl = document.querySelector('[data-action="audio-wakelock-toggle"]');
+    if(wl) wl.addEventListener('click', function(){
+      AP.wakeLockOn = !AP.wakeLockOn;
+      if(AP.wakeLockOn && AP.playing) apRequestWakeLock(); else apReleaseWakeLock();
+      render();
+    });
+    var vsel = document.getElementById('audio-voice-select');
+    if(vsel) vsel.addEventListener('change', function(){ apSetVoice(vsel.value); });
+    document.querySelectorAll('[data-chapter-jump]').forEach(function(b){
+      b.addEventListener('click', function(){ apJumpToChapter(b.getAttribute('data-chapter-jump')); });
+    });
+  }
+
+  if(AP.supported){
+    try{
+      speechSynthesis.onvoiceschanged = function(){ if(state.view === 'audio') render(); };
+    }catch(e){}
+    document.addEventListener('visibilitychange', function(){
+      if(document.visibilityState === 'visible' && AP.playing && AP.wakeLockOn) apRequestWakeLock();
+    });
   }
 
   /* ---------------- Event binding ---------------- */
