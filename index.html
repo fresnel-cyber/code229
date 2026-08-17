@@ -546,6 +546,35 @@
   }
   .toast.show{opacity:1; transform:translate(-50%, 0);}
 
+  /* ---------- Boîte de confirmation custom (remplace confirm() natif) ---------- */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(8,9,11,0.7); backdrop-filter:blur(3px);
+    display:flex; align-items:center; justify-content:center; padding:22px;
+    z-index:80; opacity:0; transition:opacity var(--t) var(--ease);
+  }
+  .modal-overlay.show{opacity:1;}
+  .modal-box{
+    background:var(--asphalt-2); border:1px solid rgba(255,255,255,0.1);
+    border-radius:var(--radius-lg); padding:22px 20px; max-width:340px; width:100%;
+    box-shadow:var(--shadow-soft); transform:translateY(10px) scale(.97);
+    transition:transform var(--t) var(--ease);
+  }
+  .modal-overlay.show .modal-box{transform:translateY(0) scale(1);}
+  .modal-title{font-family:var(--font-display); font-size:18px; margin:0 0 8px; color:var(--chalk);}
+  .modal-message{font-size:14px; line-height:1.5; color:var(--chalk-dim); margin:0 0 20px;}
+  .modal-actions{display:flex; gap:10px;}
+  .modal-btn{
+    flex:1; padding:12px; border-radius:var(--radius-sm); font-family:var(--font-body);
+    font-size:14px; font-weight:600; cursor:pointer; border:1px solid rgba(255,255,255,0.14);
+    transition:border-color var(--t) var(--ease), background var(--t) var(--ease), color var(--t) var(--ease);
+  }
+  .modal-btn-cancel{background:var(--asphalt-3); color:var(--chalk-dim);}
+  .modal-btn-cancel:hover{border-color:rgba(255,255,255,0.3); color:var(--chalk);}
+  .modal-btn-ok{background:var(--yellow); color:var(--asphalt); border-color:var(--yellow);}
+  .modal-btn-ok:hover{background:var(--yellow-deep);}
+  .modal-btn-ok.modal-btn-danger{background:var(--red); color:#fff; border-color:var(--red);}
+  .modal-btn-ok.modal-btn-danger:hover{background:#c73b32;}
+
   /* ---------- Fiches : lisibilité ---------- */
   .fiche-head-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
   .fiche-head-text h4{margin:0;}
@@ -844,11 +873,15 @@
         toast('Ce fichier ne ressemble pas à une sauvegarde CODE 229.');
         return;
       }
-      if(!confirm('Remplacer ta progression actuelle par celle de ce fichier ? Cette action est irréversible.')) return;
-      progress = normalizeProgress(incoming);
-      saveProgress();
-      goto('home'); // avant toast() : goto() réécrit tout #app (render), sinon le toast serait effacé aussitôt
-      toast('Progression importée ✓');
+      customConfirm('Remplacer ta progression actuelle par celle de ce fichier ? Cette action est irréversible.',
+        {okLabel:'Remplacer', cancelLabel:'Annuler', danger:true}
+      ).then(function(ok){
+        if(!ok) return;
+        progress = normalizeProgress(incoming);
+        saveProgress();
+        goto('home');
+        toast('Progression importée ✓');
+      });
     };
     reader.onerror = function(){ toast('Impossible de lire ce fichier.'); };
     reader.readAsText(file);
@@ -2803,9 +2836,52 @@
     var t = document.createElement('div');
     t.className = 'toast';
     t.textContent = msg;
-    document.getElementById('app').appendChild(t);
+    /* Ancré sur <body>, pas #app : render() fait app.innerHTML=... et effacerait
+       un toast qui y vivrait, peu importe l'ordre d'appel toast()/render(). */
+    document.body.appendChild(t);
     setTimeout(function(){ t.classList.add('show'); }, 10);
     setTimeout(function(){ t.classList.remove('show'); setTimeout(function(){t.remove();}, 300); }, 3400);
+  }
+
+  /* Boîte de confirmation custom (remplace confirm() natif — moche sur une PWA :
+     barre d'adresse "code229.vercel.app indique" et style du navigateur, pas de
+     l'app). Ancrée sur <body> comme toast(), donc immunisée à render(). Retourne
+     une Promise<boolean> ; usage : customConfirm(msg, opts).then(function(ok){…}). */
+  function customConfirm(message, opts){
+    opts = opts || {};
+    return new Promise(function(resolve){
+      var overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      var okLabel = opts.okLabel || 'OK';
+      var cancelLabel = opts.cancelLabel || 'Annuler';
+      var okClass = 'modal-btn modal-btn-ok' + (opts.danger ? ' modal-btn-danger' : '');
+      overlay.innerHTML =
+        '<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-msg-' + Date.now() + '">' +
+          (opts.title ? '<h3 class="modal-title">' + escapeHtml(opts.title) + '</h3>' : '') +
+          '<p class="modal-message" id="modal-msg-' + Date.now() + '">' + escapeHtml(message) + '</p>' +
+          '<div class="modal-actions">' +
+            '<button type="button" class="modal-btn modal-btn-cancel" data-modal="cancel">' + escapeHtml(cancelLabel) + '</button>' +
+            '<button type="button" class="' + okClass + '" data-modal="ok">' + escapeHtml(okLabel) + '</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      requestAnimationFrame(function(){ overlay.classList.add('show'); });
+
+      function close(result){
+        overlay.classList.remove('show');
+        document.removeEventListener('keydown', onKey);
+        setTimeout(function(){ overlay.remove(); }, 200);
+        resolve(result);
+      }
+      function onKey(e){ if(e.key === 'Escape') close(false); }
+      overlay.querySelector('[data-modal="cancel"]').addEventListener('click', function(){ close(false); });
+      overlay.querySelector('[data-modal="ok"]').addEventListener('click', function(){ close(true); });
+      overlay.addEventListener('click', function(e){ if(e.target === overlay) close(false); });
+      document.addEventListener('keydown', onKey);
+      /* Pour une action destructive, le focus par défaut va sur Annuler
+         (une pression Entrée accidentelle n'a pas de conséquence irréversible). */
+      overlay.querySelector(opts.danger ? '[data-modal="cancel"]' : '[data-modal="ok"]').focus();
+    });
   }
 
   function bindChaptersEvents(){
@@ -2858,10 +2934,11 @@
     });
     var quitBtn = document.querySelector('[data-action="quit-quiz"]');
     if(quitBtn) quitBtn.addEventListener('click', function(){
-      if(confirm('Quitter cette session ? Ta progression sur cette session sera perdue.')){
-        state.session = null;
-        goto('home');
-      }
+      customConfirm('Quitter cette session ? Ta progression sur cette session sera perdue.',
+        {okLabel:'Quitter', cancelLabel:'Continuer', danger:true}
+      ).then(function(ok){
+        if(ok){ state.session = null; goto('home'); }
+      });
     });
   }
 
