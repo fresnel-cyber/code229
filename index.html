@@ -66,7 +66,12 @@
   }
 
   *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
+  /* Désactive le "tire pour actualiser" natif du navigateur : ce geste ne sert
+     à rien ici (le service worker sert déjà la dernière version à chaque
+     ouverture normale) et son seul effet réel est un rechargement complet de
+     la page qui vide l'état JS en mémoire — donc la session de quiz/examen en
+     cours, jamais persistée tant qu'elle n'est pas terminée. */
+  html,body{margin:0;padding:0;overscroll-behavior-y:none;}
   body{
     background:
       radial-gradient(ellipse 900px 500px at 50% -10%, rgba(240,186,31,var(--tint-bg)), transparent 60%),
