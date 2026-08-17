@@ -766,6 +766,7 @@
 
   var STORAGE_KEY = 'code229_progress_v2';
   var OLD_STORAGE_KEY = 'code229_progress_v1';
+  var ACTIVE_SESSION_KEY = 'code229_active_session';
 
   /* Répétition espacée (Leitner) : délai avant qu'une question revienne,
      selon sa boîte de maîtrise (1 = mal sue → revient vite, 5 = bien sue). */
@@ -849,6 +850,32 @@
 
   function saveProgress(){
     try{ window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }catch(e){}
+  }
+
+  /* Sauvegarde de la session de quiz/examen EN COURS (pas encore terminée),
+     séparée de `progress` (le Leitner). Sans ça, un rechargement imprévu
+     (l'utilisateur rafraîchit, l'onglet est déchargé en arrière-plan…) perd
+     la session : réponses déjà données, position, chrono d'examen. Écrit en
+     localStorage direct (synchrone, pas besoin de l'abstraction window.storage
+     ici) à chaque mutation notable de la session. */
+  function saveActiveSession(){
+    if(!state.session) return;
+    try{ localStorage.setItem(ACTIVE_SESSION_KEY, JSON.stringify(state.session)); }catch(e){}
+  }
+  function clearActiveSession(){
+    try{ localStorage.removeItem(ACTIVE_SESSION_KEY); }catch(e){}
+  }
+  function loadActiveSession(){
+    try{
+      var raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if(!raw) return null;
+      var s = JSON.parse(raw);
+      if(!s || !Array.isArray(s.questions) || !s.questions.length || typeof s.index !== 'number'){
+        clearActiveSession();
+        return null;
+      }
+      return s;
+    }catch(e){ clearActiveSession(); return null; }
   }
 
   /* Sauvegarde manuelle : la progression ne vit que dans le localStorage de
@@ -1665,6 +1692,7 @@
     if(state.view === 'audio' && view !== 'audio'){ apStop(); }
     state.view = view;
     if(extra) Object.assign(state, extra);
+    if(view === 'quiz' && state.session) saveActiveSession();
     render();
     window.scrollTo(0,0);
   }
@@ -1834,6 +1862,7 @@
       picked = [letter];
     }
     s.selected[s.index] = picked;
+    saveActiveSession();
     renderQuizBody();
   }
 
@@ -1856,6 +1885,7 @@
     s.correctFlags[s.index] = ok;
     recordAnswer(q.num, ok ? 'correct' : 'wrong');
     saveProgress();
+    saveActiveSession();
     renderQuizBody();
   }
 
@@ -1868,6 +1898,7 @@
     s.skipped[s.index] = true;
     recordAnswer(q.num, 'skip');
     saveProgress();
+    saveActiveSession();
     renderQuizBody();
   }
 
@@ -1875,6 +1906,7 @@
     var s = state.session;
     if(s.index < s.questions.length - 1){
       s.index += 1;
+      saveActiveSession();
       renderQuizBody();
       var qc = document.querySelector('.question-card');
       if(qc) qc.scrollIntoView({behavior:'smooth', block:'start'});
@@ -1884,7 +1916,7 @@
   }
   function prevQuestion(){
     var s = state.session;
-    if(s.index > 0){ s.index -= 1; renderQuizBody(); }
+    if(s.index > 0){ s.index -= 1; saveActiveSession(); renderQuizBody(); }
   }
 
   function finishSession(){
@@ -1918,6 +1950,7 @@
     if(base > 0) touchStreak();
     markChapterVisited(s.chapterScope);
     saveProgress();
+    clearActiveSession(); // la session est terminée, plus rien à reprendre
 
     state.lastSession = s;
     state.fromDiag = (s.mode === 'diag');
@@ -2942,7 +2975,7 @@
       customConfirm('Quitter cette session ? Ta progression sur cette session sera perdue.',
         {okLabel:'Quitter', cancelLabel:'Continuer', danger:true}
       ).then(function(ok){
-        if(ok){ state.session = null; goto('home'); }
+        if(ok){ clearActiveSession(); state.session = null; goto('home'); }
       });
     });
   }
@@ -2970,10 +3003,36 @@
   }
 
   /* ---------------- Init ---------------- */
+  var SESSION_MODE_LABEL = {
+    exam:'examen blanc', diag:'diagnostic', daily:'session du jour',
+    errors:'mes erreurs', flagged:'questions marquées', signs:'panneaux',
+    practice:'entraînement'
+  };
+
   function init(){
     loadProgress().then(function(){
       state.view = progress.onboarded ? 'home' : 'diagnostic';
       render();
+
+      var saved = loadActiveSession();
+      if(!saved) return;
+      var label = SESSION_MODE_LABEL[saved.mode] || 'quiz';
+      customConfirm(
+        'Tu avais une session en cours (' + label + ', question ' + (saved.index+1) + '/' + saved.questions.length + '). Reprendre où tu en étais ?',
+        {okLabel:'Reprendre', cancelLabel:'Recommencer'}
+      ).then(function(ok){
+        if(!ok){ clearActiveSession(); return; }
+        if(saved.mode === 'exam' && saved.durationLimit != null){
+          // le temps a continué à s'écouler pendant l'absence : on recalcule
+          // plutôt que de faire confiance à la valeur persistée
+          var elapsed = Math.floor((Date.now() - saved.startedAt) / 1000);
+          saved.timeLeft = Math.max(0, saved.durationLimit - elapsed);
+        }
+        state.session = saved;
+        state.view = 'quiz';
+        render();
+        if(saved.mode === 'exam' && saved.timeLeft <= 0) finishSession();
+      });
     });
   }
 
