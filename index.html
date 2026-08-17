@@ -883,14 +883,43 @@
      de la garder en cas de changement de téléphone, cache vidé, etc. */
   function exportProgress(){
     var payload = { __code229_backup: true, exportedAt: new Date().toISOString(), progress: progress };
-    var blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url;
-    a.download = 'code229-progression-' + new Date().toISOString().slice(0,10) + '.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
-    toast('Progression exportée ✓');
+    var json = JSON.stringify(payload, null, 2);
+    var filename = 'code229-progression-' + new Date().toISOString().slice(0,10) + '.json';
+
+    function downloadFallback(){
+      var blob = new Blob([json], {type:'application/json'});
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+      toast('Sauvegarde téléchargée ✓');
+    }
+
+    /* Partage natif du téléphone (WhatsApp à soi-même, Drive, e-mail…) plutôt
+       qu'un téléchargement de fichier JSON : la plupart des utilisateurs ne
+       savent pas ce qu'est un JSON ni où le retrouver, alors que "partager
+       vers WhatsApp" est un geste qu'ils connaissent déjà. On retombe sur le
+       téléchargement si le partage de fichiers n'est pas dispo (desktop…). */
+    if(navigator.share && navigator.canShare){
+      try{
+        var file = new File([json], filename, {type:'application/json'});
+        if(navigator.canShare({files:[file]})){
+          navigator.share({
+            files:[file],
+            title:'Ma sauvegarde CODE 229',
+            text:'Ma progression CODE 229 — garde ce fichier, tu pourras la restaurer avec « Restaurer une sauvegarde » dans l\'app.'
+          }).then(function(){
+            toast('Sauvegarde envoyée ✓');
+          }).catch(function(err){
+            if(err && err.name !== 'AbortError') downloadFallback(); // annulé = pas une erreur
+          });
+          return;
+        }
+      }catch(e){ /* File()/canShare indisponible ou pris en défaut → repli */ }
+    }
+    downloadFallback();
   }
 
   function importProgressFile(file){
@@ -2141,11 +2170,11 @@
       (isOfflineReady()
         ? '<button class="backup-btn" data-action="precache-offline">'+icon('check',13)+'<span>Disponible hors-ligne · actualiser</span></button>'
         : '<button class="backup-btn" data-action="precache-offline">'+icon('download',13)+'<span>Activer le mode hors-ligne complet</span></button>') +
-      '<button class="backup-btn" data-action="export-progress">'+icon('download',13)+'<span>Exporter ma progression</span></button>' +
-      '<button class="backup-btn" data-action="import-progress">'+icon('upload',13)+'<span>Importer une sauvegarde</span></button>' +
+      '<button class="backup-btn" data-action="export-progress">'+icon('upload',13)+'<span>Envoyer ma sauvegarde</span></button>' +
+      '<button class="backup-btn" data-action="import-progress">'+icon('download',13)+'<span>Restaurer une sauvegarde</span></button>' +
       '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
     '</div>';
-    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — exportable ci-dessus.<br><span class="footer-credit">Made by Fresnel SATIGNON</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
+    html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — tu peux l\'envoyer ci-dessus (WhatsApp, e-mail…) pour la garder.<br><span class="footer-credit">Made by Fresnel SATIGNON</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
 
     html += '</div>';
     return html;
