@@ -1691,7 +1691,8 @@
     'B21c1':'Tourner à droite (prochaine intersection)','B21c2':'Tourner à gauche (prochaine intersection)','B22a':'Voie réservée aux cycles','B25':'Vitesse minimale obligatoire',
     'B26':'Chaînes à neige obligatoires','B27':'Voie réservée aux bus','B29':'Voie pour véhicules lents','B31':'Fin des interdictions',
     'B34':'Fin d\'interdiction de dépasser','B34a':'Fin d\'interdiction de dépasser (PL)','B43':'Fin de vitesse minimale','B45':'Fin de voie réservée aux bus',
-    'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage','B14-50':'Vitesse limitée à 50'
+    'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage','B14-50':'Vitesse limitée à 50',
+    'B14-3':'Vitesse limitée à 60 (deux-roues)','B14-4':'Vitesse limitée à 50 (marchandises)','B14-B25':'Vitesse limitée à 50, minimale 30'
   };
   function codeLabel(code){ return CODE_NAME[code] || ('Panneau '+code); }
 
@@ -1704,7 +1705,7 @@
    'A6 A7 A7-1 A8 AB1 AB2 AB3a AB4 AB6 AB7 AK22 AK4 AK5 B0 B1 B10a B12 B13 '+
    'B13a B15 B18a B18b B21-1 B21b B21c1 B21c2 B22a B25 B26 B27 B29 B2a B2a1 '+
    'B2b B2c B3 B31 B3-3 B33 B34 B34a B43 B45 B5c B6a1 B6b1 B6d B7a B7b B8 '+
-   'B8-1 B9c B9g C12 C13 G1 B14-50').split(' ').forEach(function(c){ SIGN_IMG[c]=1; });
+   'B8-1 B9c B9g C12 C13 G1 B14-50 B14-3 B14-4 B14-B25').split(' ').forEach(function(c){ SIGN_IMG[c]=1; });
   function signMarkup(code, size){
     if(SIGN_IMG[code]){
       return '<img class="sign-photo" src="img/sign_'+code+'.png" loading="lazy" '+
@@ -1713,10 +1714,24 @@
     return signSvg(signIdForCode(code), size);
   }
 
+  /* QSIGN mappe certaines questions sur le code générique 'B14' (« Vitesse
+     limitée »), qui recouvre en réalité 3 panneaux différents selon le
+     sous-numéro cité dans l'énoncé : B14 simple (50, sans sous-panneau),
+     B14(3) (60 + sous-panneau moto/cyclo) et B14(4) (50 + sous-panneau
+     camion). Q145 montre B14 et B25 empilés (50 puis 30). Sans cette table,
+     le SVG générique affichait toujours « 50 », y compris pour les questions
+     qui parlent de 60 km/h — trompeur. Prioritaire sur QSIGN. */
+  var QSIGN_OVERRIDE = {
+    59:'B14-3', 122:'B14-3', 671:'B14-3', 672:'B14-3',
+    63:'B14-4',
+    145:'B14-B25',
+    74:'B14-50', 120:'B14-50', 121:'B14-50', 149:'B14-50', 682:'B14-50', 687:'B14-50'
+  };
+
   /* Illustration d'une question : renvoie le code panneau associé, ou null. */
   function signForQuestion(q){
     if(!q || q.isSign) return null;
-    return QSIGN[q.num] || null;
+    return QSIGN_OVERRIDE[q.num] || QSIGN[q.num] || null;
   }
 
   /* ---------------- Schémas de chaussée (vue de dessus) ----------------
