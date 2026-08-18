@@ -266,6 +266,7 @@
   .tile-practice .tile-icon{background:rgba(76,134,242,var(--tint-solid)); color:var(--blue);}
   .tile-errors .tile-icon{background:rgba(225,75,66,var(--tint-solid)); color:var(--red);}
   .tile-fiches .tile-icon{background:rgba(44,170,107,var(--tint-solid)); color:var(--green);}
+  .tile-badges .tile-icon{background:rgba(76,134,242,var(--tint-solid)); color:var(--blue);}
 
   /* ---------- Stats strip ---------- */
   .stats-strip{display:flex; gap:10px; margin-top:16px;}
@@ -499,8 +500,74 @@
   .status-body{min-width:0;}
   .status-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--chalk-faint);}
   .status-phrase{font-size:13.5px; color:var(--chalk-dim); line-height:1.4; margin-top:3px;}
-  .streak-note{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:var(--chalk-faint);}
-  .streak-note svg{color:var(--yellow); flex-shrink:0;}
+  /* ---------- Streak : enjeu visible (loss aversion, à la Duolingo) ---------- */
+  .streak-banner{
+    display:flex; align-items:center; gap:12px; margin-top:10px; padding:12px 14px;
+    border-radius:var(--radius-md); background:rgba(240,186,31,var(--tint-bg));
+    border:1px solid rgba(240,186,31,0.28);
+  }
+  .streak-banner .flame-icon{color:var(--yellow); flex-shrink:0;}
+  .streak-banner-text{flex:1; min-width:0;}
+  .streak-banner-text b{display:block; font-family:var(--font-display); font-size:15px; color:var(--chalk);}
+  .streak-banner-text span{display:block; font-size:12px; color:var(--chalk-dim); margin-top:1px;}
+  .streak-banner.at-risk{background:rgba(225,75,66,var(--tint-bg)); border-color:rgba(225,75,66,0.32);}
+  .streak-banner.at-risk .flame-icon{color:var(--red);}
+  .streak-freeze-pill{
+    display:flex; align-items:center; gap:4px; flex-shrink:0; font-family:var(--font-mono); font-size:11.5px;
+    color:var(--blue); background:rgba(76,134,242,var(--tint-bg)); border:1px solid rgba(76,134,242,0.3);
+    padding:4px 9px; border-radius:100px;
+  }
+
+  /* ---------- Célébration de badge (jalons) ---------- */
+  .celebrate-overlay{
+    position:fixed; inset:0; background:rgba(8,9,11,0.78); backdrop-filter:blur(2px);
+    display:flex; align-items:center; justify-content:center; z-index:90; padding:22px;
+    opacity:0; transition:opacity 220ms ease; overflow:hidden;
+  }
+  .celebrate-overlay.show{opacity:1;}
+  .celebrate-confetti{position:absolute; inset:0; pointer-events:none;}
+  .celebrate-confetti i{
+    position:absolute; top:-24px; width:8px; height:14px; border-radius:2px; opacity:0.95;
+    animation-name:confettiFall; animation-timing-function:ease-in; animation-iteration-count:1; animation-fill-mode:forwards;
+  }
+  @keyframes confettiFall{
+    0%{transform:translateY(0) rotate(0deg); opacity:1;}
+    100%{transform:translateY(112vh) rotate(560deg); opacity:0;}
+  }
+  .celebrate-box{
+    position:relative; background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.12);
+    border-radius:var(--radius-lg); padding:34px 26px 26px; max-width:320px; width:100%; text-align:center;
+    box-shadow:var(--shadow-soft); transform:scale(0.85); transition:transform 280ms cubic-bezier(.34,1.56,.64,1);
+  }
+  .celebrate-overlay.show .celebrate-box{transform:scale(1);}
+  .celebrate-icon{
+    width:86px; height:86px; border-radius:50%; margin:0 auto 18px;
+    background:linear-gradient(150deg, var(--yellow-on-ink), var(--yellow-deep-on-ink));
+    color:var(--ink-on-accent); display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 24px -8px rgba(240,186,31,0.55);
+  }
+  .celebrate-eyebrow{font-family:var(--font-mono); font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--chalk-faint); margin-bottom:6px;}
+  .celebrate-title{font-family:var(--font-display); font-size:21px; margin:0; color:var(--chalk); text-wrap:balance;}
+  @media (prefers-reduced-motion: reduce){
+    .celebrate-confetti i{display:none;}
+    .celebrate-box{transition:none;}
+  }
+
+  /* ---------- Badges ---------- */
+  .badges-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:12px; margin-top:14px;}
+  .badge-card{
+    display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;
+    padding:16px 10px; border-radius:var(--radius-md); background:var(--asphalt-2);
+    border:1px solid rgba(var(--on-surface-rgb),0.08);
+  }
+  .badge-card .badge-icon{
+    width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(150deg, var(--yellow-on-ink), var(--yellow-deep-on-ink)); color:var(--ink-on-accent);
+  }
+  .badge-card.locked{opacity:0.42;}
+  .badge-card.locked .badge-icon{background:var(--asphalt-3); color:var(--chalk-faint);}
+  .badge-card b{font-size:12.5px; color:var(--chalk); line-height:1.3;}
+  .badge-card span{font-family:var(--font-mono); font-size:10px; color:var(--chalk-faint);}
 
   /* ---------- Home : session du jour (action dominante) ---------- */
   .daily-card{
@@ -850,7 +917,9 @@
       totalCorrect: 0,
       onboarded: false,
       streak: 0,             // jours consécutifs avec au moins une session
-      lastActiveDate: null   // 'AAAA-M-J' de la dernière session
+      lastActiveDate: null,  // 'AAAA-M-J' de la dernière session
+      streakFreezes: 0,      // jours de grâce (gagnés en restant actif) qui sauvent un streak en cas d'oubli
+      badges: []             // {id, unlockedAt} — jalons débloqués
     };
   }
 
@@ -1125,14 +1194,35 @@
     if(chapterId && chapterId !== 'ALL'){ progress.chapterLastVisit[chapterId] = Date.now(); }
   }
 
-  /* Régularité : jours consécutifs avec au moins une session (repère factuel). */
+  /* Régularité : jours consécutifs avec au moins une session (repère factuel).
+     Un « gel » (streakFreezes) est gagné tous les 7 jours de streak (max 2 en
+     stock) et se consomme automatiquement pour sauver le streak si un SEUL
+     jour est manqué — sans pénaliser un oubli isolé, sans non plus vider le
+     mécanisme de sens en cas de longue absence. */
   function dayStr(d){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+  function streakIsActiveToday(){ return progress.lastActiveDate === dayStr(new Date()); }
+  function streakAtRisk(){ return (progress.streak||0) > 0 && !streakIsActiveToday(); }
   function touchStreak(){
     var t = dayStr(new Date());
-    if(progress.lastActiveDate === t) return;      // déjà compté aujourd'hui
-    var y = new Date(); y.setDate(y.getDate()-1);
-    progress.streak = (progress.lastActiveDate === dayStr(y)) ? (progress.streak||0)+1 : 1;
+    if(progress.lastActiveDate === t) return null;  // déjà compté aujourd'hui
+    var yesterday = new Date(); yesterday.setDate(yesterday.getDate()-1);
+    var twoDaysAgo = new Date(); twoDaysAgo.setDate(twoDaysAgo.getDate()-2);
+    var event = null;
+    if(progress.lastActiveDate === dayStr(yesterday)){
+      progress.streak = (progress.streak||0) + 1;
+    } else if(progress.lastActiveDate === dayStr(twoDaysAgo) && (progress.streakFreezes||0) > 0){
+      progress.streakFreezes -= 1;
+      progress.streak = (progress.streak||0) + 1;
+      event = 'freeze_used';
+    } else {
+      progress.streak = 1;
+    }
     progress.lastActiveDate = t;
+    if(!event && progress.streak > 0 && progress.streak % 7 === 0 && (progress.streakFreezes||0) < 2){
+      progress.streakFreezes = (progress.streakFreezes||0) + 1;
+      event = 'freeze_gained';
+    }
+    return event;
   }
 
   /* Sous-tags (surtout chap. II) dérivés du contenu, pour affiner « quoi bosser ». */
@@ -1426,6 +1516,15 @@
         break;
       case 'contrast':
         body = '<circle cx="24" cy="24" r="18"/><path d="M24 6 A18 18 0 0 1 24 42 Z" fill="currentColor" stroke="none"/>';
+        break;
+      case 'flame':
+        body = '<path d="M24 4 C18 12 14 16 14 25 A10 10 0 0 0 34 25 C34 19 31 16 29 12 C28.5 17 25.5 18.5 24.5 15 C23 10.5 25.5 8 24 4 Z" fill="currentColor" stroke="none"/>';
+        break;
+      case 'snowflake':
+        body = '<path d="M24 4 V44 M9 14 L39 34 M9 34 L39 14"/><path d="M24 10 L19 13 M24 10 L29 13 M24 38 L19 35 M24 38 L29 35"/>';
+        break;
+      case 'medal':
+        body = '<circle cx="24" cy="28" r="14"/><path d="M24 14 L18 20 M24 14 L30 20" fill="none"/><path d="M17 4 L21 15 L14 20 Z" fill="currentColor" stroke="none"/><path d="M31 4 L27 15 L34 20 Z" fill="currentColor" stroke="none"/><path d="M20 28 L23 31 L29 25" fill="none"/>';
         break;
       default:
         body = '<circle cx="24" cy="24" r="16"/>';
@@ -2052,8 +2151,9 @@
       progress.sessionLog.push({date:new Date().toISOString(), mode:s.mode, correct:correctCount, total:base, percent:percent});
       if(progress.sessionLog.length > 40) progress.sessionLog.shift();
     }
-    if(base > 0) touchStreak();
+    var streakEvent = base > 0 ? touchStreak() : null;
     markChapterVisited(s.chapterScope);
+    var newBadges = checkNewBadges();
     saveProgress();
     clearActiveSession(); // la session est terminée, plus rien à reprendre
 
@@ -2061,6 +2161,102 @@
     state.fromDiag = (s.mode === 'diag');
     state.session = null;
     goto('results');
+
+    if(streakEvent === 'freeze_used'){
+      toast('Un jour manqué, mais ton streak est sauvé grâce à un jour de grâce ❄️');
+    } else if(streakEvent === 'freeze_gained'){
+      toast('Nouveau jour de grâce gagné — il protégera ton streak si tu oublies un jour ✓');
+    }
+    celebrateBadges(newBadges);
+  }
+
+  /* ---------------- Badges (jalons + célébration) ----------------
+     Chaque badge a une condition de déblocage évaluée sur l'état courant de
+     `progress`. checkNewBadges() renvoie ceux qui viennent de basculer de
+     verrouillé à débloqué (pas déjà dans progress.badges), pour déclencher
+     une vraie célébration au bon moment plutôt qu'un chiffre statique. */
+  var BADGES = [
+    {id:'streak_3', name:'3 jours d\'affilée', icon:'flame', check:function(){ return (progress.streak||0) >= 3; }},
+    {id:'streak_7', name:'7 jours d\'affilée', icon:'flame', check:function(){ return (progress.streak||0) >= 7; }},
+    {id:'streak_14', name:'14 jours d\'affilée', icon:'flame', check:function(){ return (progress.streak||0) >= 14; }},
+    {id:'streak_30', name:'30 jours d\'affilée', icon:'flame', check:function(){ return (progress.streak||0) >= 30; }},
+    {id:'first_session', name:'Première session terminée', icon:'compass', check:function(){ return progress.totalAnswered >= 1; }},
+    {id:'q_50', name:'50 questions répondues', icon:'target', check:function(){ return progress.totalAnswered >= 50; }},
+    {id:'q_100', name:'100 questions répondues', icon:'target', check:function(){ return progress.totalAnswered >= 100; }},
+    {id:'q_250', name:'250 questions répondues', icon:'target', check:function(){ return progress.totalAnswered >= 250; }},
+    {id:'q_500', name:'500 questions répondues', icon:'target', check:function(){ return progress.totalAnswered >= 500; }},
+    {id:'q_all', name:'Toutes les questions vues', icon:'trophy', check:function(){ return Object.keys(progress.perQuestion).length >= TOTAL_QUESTIONS; }},
+    {id:'chapter_master', name:'Un chapitre maîtrisé', icon:'book', check:function(){
+      return CHAPTER_META.some(function(c){
+        var qs = QUESTIONS.filter(function(q){ return q.chapter === c.id; });
+        var seen = qs.filter(function(q){ var r = progress.perQuestion[String(q.num)]; return r && r.seen > 0; }).length;
+        if(seen < qs.length * 0.7) return false; // au moins 70% du chapitre vu, pas juste 1 question chanceuse
+        return chapterMastery(c.id) >= 90;
+      });
+    }},
+    {id:'exam_pass', name:'Premier examen blanc réussi', icon:'flag', check:function(){ return progress.examHistory.some(function(e){ return e.percent >= 80; }); }},
+    {id:'exam_perfect', name:'Examen blanc parfait', icon:'medal', check:function(){ return progress.examHistory.some(function(e){ return e.percent === 100; }); }}
+  ];
+  function unlockedBadgeIds(){ return (progress.badges||[]).map(function(b){ return b.id; }); }
+  function checkNewBadges(){
+    var already = unlockedBadgeIds();
+    var newly = [];
+    BADGES.forEach(function(b){
+      if(already.indexOf(b.id) === -1 && b.check()){
+        progress.badges.push({id:b.id, unlockedAt:new Date().toISOString()});
+        newly.push(b);
+      }
+    });
+    return newly;
+  }
+
+  function celebrateBadges(list){
+    if(!list || !list.length) return;
+    var badge = list[0], rest = list.slice(1);
+    var overlay = document.createElement('div');
+    overlay.className = 'celebrate-overlay';
+    var colors = ['var(--yellow-on-ink)','var(--green)','var(--blue)','var(--red)','var(--chalk)'];
+    var confetti = '';
+    for(var i=0;i<28;i++){
+      var left=(Math.random()*100).toFixed(1), delay=(Math.random()*0.4).toFixed(2), dur=(1.6+Math.random()*1.0).toFixed(2);
+      confetti += '<i style="left:'+left+'%;background:'+colors[i%colors.length]+';animation-delay:'+delay+'s;animation-duration:'+dur+'s;"></i>';
+    }
+    overlay.innerHTML =
+      '<div class="celebrate-confetti">'+confetti+'</div>' +
+      '<div class="celebrate-box" role="dialog" aria-modal="true">' +
+        '<div class="celebrate-icon">'+icon(badge.icon,42)+'</div>' +
+        '<div class="celebrate-eyebrow">Nouveau badge</div>' +
+        '<h3 class="celebrate-title">'+escapeHtml(badge.name)+'</h3>' +
+        '<button type="button" class="modal-btn modal-btn-ok" data-action="celebrate-close" style="width:100%;margin-top:18px;">Continuer</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    requestAnimationFrame(function(){ overlay.classList.add('show'); });
+    if(navigator.vibrate){ try{ navigator.vibrate([30,40,30,40,70]); }catch(e){} }
+    function close(){
+      overlay.classList.remove('show');
+      setTimeout(function(){ overlay.remove(); celebrateBadges(rest); }, 220);
+    }
+    overlay.querySelector('[data-action="celebrate-close"]').addEventListener('click', close);
+    overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
+  }
+
+  function renderBadges(){
+    var unlocked = unlockedBadgeIds();
+    var html = '<div class="view">';
+    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Retour à l\'accueil">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mes badges</h2></div></div>';
+    html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">'+unlocked.length+' / '+BADGES.length+' débloqués.</p>';
+    html += '<div class="badges-grid">';
+    BADGES.forEach(function(b){
+      var got = unlocked.indexOf(b.id) !== -1;
+      var rec = got ? (progress.badges||[]).filter(function(x){return x.id===b.id;})[0] : null;
+      html += '<div class="badge-card'+(got?'':' locked')+'">' +
+        '<div class="badge-icon">'+icon(b.icon,26)+'</div>' +
+        '<b>'+escapeHtml(b.name)+'</b>' +
+        (got && rec ? '<span>'+new Date(rec.unlockedAt).toLocaleDateString('fr-FR')+'</span>' : '<span>Verrouillé</span>') +
+      '</div>';
+    });
+    html += '</div></div>';
+    return html;
   }
 
   /* ---------------- Rendering ---------------- */
@@ -2077,6 +2273,7 @@
       case 'results': html += renderResults(); break;
       case 'fiches': html += renderFiches(); break;
       case 'audio': html += renderAudio(); break;
+      case 'badges': html += renderBadges(); break;
       case 'empty': html += renderEmptyView(); break;
       default: html += renderHome();
     }
@@ -2173,8 +2370,14 @@
         '<div class="status-phrase">'+probPhrase(prob)+'</div></div>';
     }
     html += '</div>';
-    if(progress.streak >= 2){
-      html += '<div class="streak-note">'+icon('compass',13)+'<span>'+progress.streak+' jours d\'affilée</span></div>';
+    if(progress.streak >= 1){
+      var atRisk = streakAtRisk();
+      html += '<div class="streak-banner'+(atRisk?' at-risk':'')+'">' +
+        '<div class="flame-icon">'+icon('flame',26)+'</div>' +
+        '<div class="streak-banner-text"><b>'+progress.streak+' jour'+(progress.streak>1?'s':'')+' d\'affilée</b>' +
+        '<span>'+(atRisk ? 'Fais ta session aujourd\'hui pour le garder' : 'Bravo, continue comme ça !')+'</span></div>' +
+        ((progress.streakFreezes||0) > 0 ? '<div class="streak-freeze-pill" title="Jours de grâce : protègent ton streak si tu oublies un jour">'+icon('snowflake',13)+'×'+progress.streakFreezes+'</div>' : '') +
+      '</div>';
     }
 
     // 2. QUOI FAIRE MAINTENANT — la session du jour, action dominante
@@ -2231,6 +2434,9 @@
     html += '<button class="tile tile-flagged" data-action="start-flagged">' +
       '<div class="tile-icon">'+icon('bookmark',20)+'</div>' +
       '<h3>Marquées'+(flaggedCnt?' ('+flaggedCnt+')':'')+'</h3><p>Les questions que tu as mises de côté.</p></button>';
+    html += '<button class="tile tile-badges" data-nav="badges">' +
+      '<div class="tile-icon">'+icon('medal',20)+'</div>' +
+      '<h3>Mes badges</h3><p>'+unlockedBadgeIds().length+'/'+BADGES.length+' débloqués.</p></button>';
     html += '<button class="tile tile-fiches tile-wide" data-nav="fiches">' +
       '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('book',20)+'</div><div><h3>Fiches de révision</h3><p>L\'essentiel de chaque chapitre, à lire d\'un coup d\'œil.</p></div></div>' +
       icon('chevron',16) +
