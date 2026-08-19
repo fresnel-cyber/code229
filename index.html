@@ -2844,7 +2844,9 @@
     wakeLock: null,
     supported: (typeof window !== 'undefined' && 'speechSynthesis' in window),
     fastEndStreak: 0,          // détecte un moteur vocal muet/défaillant (cf. apSpeakCurrent)
-    lastSpeakStart: 0
+    lastSpeakStart: 0,
+    speakGen: 0,                // évite un chevauchement si apSpeakCurrent est rappelé avant la fin du délai anti-bug
+    heartbeat: null             // cf. apStartHeartbeat : contourne un bug Chrome connu (extinction ~15s)
   };
   var AUDIO_POS_KEY = 'code229_audio_pos';
 
@@ -2909,42 +2911,73 @@
     if(AP.wakeLock){ AP.wakeLock.release().catch(function(){}); AP.wakeLock = null; }
   }
 
+  /* Contourne un bug Chrome/Android bien connu : appeler speak() juste après
+     cancel() dans le même tick fait parfois échouer speak() en silence (le
+     moteur ignore la requête sans erreur JS). On cancel() puis on laisse
+     systématiquement un court délai au moteur avant de relancer — y compris
+     au tout premier play, pour ne pas dépendre de `speechSynthesis.speaking`
+     qui peut redevenir faux dès l'appel à cancel() et donner un faux
+     sentiment de "rien à annuler" (vérifié : deux next() très rapprochés
+     pouvaient sinon se chevaucher brièvement avant d'être coupés). Le
+     compteur speakGen élimine toute lecture obsolète qui déclencherait quand
+     même après ce délai (ex: plusieurs "suivant" tapés très vite). */
   function apSpeakCurrent(){
     if(!AP.supported) return;
-    speechSynthesis.cancel();
     var cur = AP.list[AP.idx];
     if(!cur){ apStop(); return; }
-    var utt = new SpeechSynthesisUtterance(cur.text);
-    utt.lang = 'fr-FR';
-    if(AP.voice) utt.voice = AP.voice;
-    utt.rate = AP.rate;
-    AP.lastSpeakStart = Date.now();
-    utt.onend = function(){
-      if(!AP.playing) return; // pause() appelé entre-temps
-      /* Garde-fou : sur certains téléphones (aucune voix française installée,
-         moteur TTS absent…) speak() « réussit » mais ne produit aucun son et
-         termine quasi instantanément. Sans ce filet, l'auto-avance enchaînerait
-         silencieusement toute la playlist en une fraction de seconde. */
-      var tooFast = (Date.now() - AP.lastSpeakStart) < 300 && cur.text.length > 15;
-      AP.fastEndStreak = tooFast ? AP.fastEndStreak + 1 : 0;
-      if(AP.fastEndStreak >= 3){
-        apStop();
-        render(); // avant toast() : render() réécrit #app (innerHTML), sinon le toast serait effacé aussitôt
-        toast('La lecture vocale ne semble pas fonctionner sur cet appareil. Vérifie qu\'une voix française est installée (réglages du téléphone) ou essaie un autre navigateur.');
-        return;
+    var myGen = ++AP.speakGen;
+    speechSynthesis.cancel();
+
+    setTimeout(function(){
+      if(myGen !== AP.speakGen) return; // une lecture plus récente a pris le relais
+      var utt = new SpeechSynthesisUtterance(cur.text);
+      utt.lang = 'fr-FR';
+      if(AP.voice) utt.voice = AP.voice;
+      utt.rate = AP.rate;
+      AP.lastSpeakStart = Date.now();
+      utt.onend = function(){
+        if(myGen !== AP.speakGen || !AP.playing) return; // pause()/appel plus récent entre-temps
+        /* Garde-fou : sur certains téléphones (aucune voix française installée,
+           moteur TTS absent…) speak() « réussit » mais ne produit aucun son et
+           termine quasi instantanément. Sans ce filet, l'auto-avance enchaînerait
+           silencieusement toute la playlist en une fraction de seconde. */
+        var tooFast = (Date.now() - AP.lastSpeakStart) < 300 && cur.text.length > 15;
+        AP.fastEndStreak = tooFast ? AP.fastEndStreak + 1 : 0;
+        if(AP.fastEndStreak >= 3){
+          apStop();
+          render(); // avant toast() : render() réécrit #app (innerHTML), sinon le toast serait effacé aussitôt
+          toast('La lecture vocale ne semble pas fonctionner sur cet appareil. Vérifie qu\'une voix française est installée (réglages du téléphone) ou essaie un autre navigateur.');
+          return;
+        }
+        if(AP.idx < AP.list.length - 1){ AP.idx++; apSavePosition(); apSpeakCurrent(); }
+        else { apStop(); }
+        render();
+      };
+      utt.onerror = function(){
+        if(myGen !== AP.speakGen || !AP.playing) return;
+        if(AP.idx < AP.list.length - 1){ AP.idx++; apSpeakCurrent(); }
+        else { apStop(); }
+        render();
+      };
+      speechSynthesis.speak(utt);
+      apUpdateMediaSession();
+    }, 60);
+  }
+
+  /* Second bug Chrome connu (surtout desktop, inoffensif ailleurs) : la
+     synthèse se fige après ~15s d'inactivité de l'onglet si on ne la
+     "secoue" pas. Un aller-retour pause/resume périodique l'empêche. */
+  function apStartHeartbeat(){
+    apStopHeartbeat();
+    AP.heartbeat = setInterval(function(){
+      if(AP.playing && AP.supported && speechSynthesis.speaking){
+        speechSynthesis.pause();
+        speechSynthesis.resume();
       }
-      if(AP.idx < AP.list.length - 1){ AP.idx++; apSavePosition(); apSpeakCurrent(); }
-      else { apStop(); }
-      render();
-    };
-    utt.onerror = function(){
-      if(!AP.playing) return;
-      if(AP.idx < AP.list.length - 1){ AP.idx++; apSpeakCurrent(); }
-      else { apStop(); }
-      render();
-    };
-    speechSynthesis.speak(utt);
-    apUpdateMediaSession();
+    }, 10000);
+  }
+  function apStopHeartbeat(){
+    if(AP.heartbeat){ clearInterval(AP.heartbeat); AP.heartbeat = null; }
   }
 
   function apPlay(){
@@ -2953,12 +2986,14 @@
     AP.playing = true;
     AP.fastEndStreak = 0;
     apRequestWakeLock();
+    apStartHeartbeat();
     apSpeakCurrent();
     render();
   }
   function apPause(){
     AP.playing = false;
     speechSynthesis.cancel();
+    apStopHeartbeat();
     apReleaseWakeLock();
     apUpdateMediaSession();
     render();
@@ -2966,6 +3001,7 @@
   function apStop(){
     AP.playing = false;
     if(AP.supported) speechSynthesis.cancel();
+    apStopHeartbeat();
     apReleaseWakeLock();
   }
   function apGoto(i){
