@@ -2911,24 +2911,25 @@
     if(AP.wakeLock){ AP.wakeLock.release().catch(function(){}); AP.wakeLock = null; }
   }
 
-  /* Contourne un bug Chrome/Android bien connu : appeler speak() juste après
-     cancel() dans le même tick fait parfois échouer speak() en silence (le
-     moteur ignore la requête sans erreur JS). On cancel() puis on laisse
-     systématiquement un court délai au moteur avant de relancer — y compris
-     au tout premier play, pour ne pas dépendre de `speechSynthesis.speaking`
-     qui peut redevenir faux dès l'appel à cancel() et donner un faux
-     sentiment de "rien à annuler" (vérifié : deux next() très rapprochés
-     pouvaient sinon se chevaucher brièvement avant d'être coupés). Le
-     compteur speakGen élimine toute lecture obsolète qui déclencherait quand
-     même après ce délai (ex: plusieurs "suivant" tapés très vite). */
-  function apSpeakCurrent(){
+  /* speechSynthesis.speak() doit rester SYNCHRONE avec le geste utilisateur
+     qui l'a déclenché (clic) sur beaucoup de navigateurs (Safari surtout,
+     Chrome de plus en plus) — sinon l'appel est ignoré SILENCIEUSEMENT, sans
+     erreur JS ni son. Un `setTimeout`, même court, casse ce lien. Donc :
+     `immediate=true` pour tout appel venant directement d'un clic (Lecture,
+     Suivant/Précédent, vitesse, voix, saut de chapitre) → parle dans le même
+     tick, quitte à risquer l'autre bug Chrome connu (cancel() suivi
+     immédiatement de speak() peut échouer en silence lui aussi) sur ce cas
+     précis — un risque bien moindre que "rien ne marche jamais". Seul
+     l'enchaînement automatique entre deux fiches (déclenché par onend,
+     jamais un geste utilisateur, donc rien à perdre à différer) passe par un
+     court délai après cancel() pour se protéger de CE bug-là. */
+  function apSpeakCurrent(immediate){
     if(!AP.supported) return;
     var cur = AP.list[AP.idx];
     if(!cur){ apStop(); return; }
     var myGen = ++AP.speakGen;
-    speechSynthesis.cancel();
 
-    setTimeout(function(){
+    function doSpeak(){
       if(myGen !== AP.speakGen) return; // une lecture plus récente a pris le relais
       var utt = new SpeechSynthesisUtterance(cur.text);
       utt.lang = 'fr-FR';
@@ -2949,19 +2950,22 @@
           toast('La lecture vocale ne semble pas fonctionner sur cet appareil. Vérifie qu\'une voix française est installée (réglages du téléphone) ou essaie un autre navigateur.');
           return;
         }
-        if(AP.idx < AP.list.length - 1){ AP.idx++; apSavePosition(); apSpeakCurrent(); }
+        if(AP.idx < AP.list.length - 1){ AP.idx++; apSavePosition(); apSpeakCurrent(false); }
         else { apStop(); }
         render();
       };
       utt.onerror = function(){
         if(myGen !== AP.speakGen || !AP.playing) return;
-        if(AP.idx < AP.list.length - 1){ AP.idx++; apSpeakCurrent(); }
+        if(AP.idx < AP.list.length - 1){ AP.idx++; apSpeakCurrent(false); }
         else { apStop(); }
         render();
       };
       speechSynthesis.speak(utt);
       apUpdateMediaSession();
-    }, 60);
+    }
+
+    speechSynthesis.cancel();
+    if(immediate){ doSpeak(); } else { setTimeout(doSpeak, 60); }
   }
 
   /* Second bug Chrome connu (surtout desktop, inoffensif ailleurs) : la
@@ -2987,7 +2991,7 @@
     AP.fastEndStreak = 0;
     apRequestWakeLock();
     apStartHeartbeat();
-    apSpeakCurrent();
+    apSpeakCurrent(true); // synchrone : appelé directement depuis le clic sur "Lecture"
     render();
   }
   function apPause(){
@@ -3009,19 +3013,19 @@
     AP.idx = Math.max(0, Math.min(AP.list.length - 1, i));
     AP.fastEndStreak = 0;
     apSavePosition();
-    if(AP.playing) apSpeakCurrent();
+    if(AP.playing) apSpeakCurrent(true); // synchrone : Suivant/Précédent/saut de chapitre partent d'un clic
     render();
   }
   function apNext(){ apGoto(AP.idx + 1); }
   function apPrev(){ apGoto(AP.idx - 1); }
   function apSetRate(r){
     AP.rate = r; apSavePosition();
-    if(AP.playing) apSpeakCurrent(); else render();
+    if(AP.playing) apSpeakCurrent(true); else render(); // synchrone : clic sur la vitesse
   }
   function apSetVoice(voiceURI){
     var v = apFrenchVoices().find(function(x){ return x.voiceURI === voiceURI; });
     AP.voice = v || null;
-    if(AP.playing) apSpeakCurrent(); else render();
+    if(AP.playing) apSpeakCurrent(true); else render(); // synchrone : changement de voix par l'utilisateur
   }
   function apJumpToChapter(chapId){
     if(!AP.list.length) AP.list = apBuildList();
