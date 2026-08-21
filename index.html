@@ -3037,7 +3037,6 @@
       html += '</div>';
     });
     html += '<button class="btn btn-primary btn-block" style="margin-top:14px;" data-action="start-signs">'+icon('compass',16)+' M\'entraîner sur les panneaux</button>';
-    html += renderPanneauxFRSection();
     html += '</div>';
     return html;
   }
@@ -3094,6 +3093,7 @@
         '<div class="fiche-head-text"><h4>'+c.title+'</h4><span>'+(c.sub||'')+'</span></div>' + '<span class="fiche-chevron">'+icon('chevron',16)+'</span>' +
       '</div>';
       html += '<div class="fiche-content"><div class="fiche-content-inner">';
+      if(c.id === 'II'){ html += renderPanneauxFRSection(); }
       if(FICHE_LEAD[c.id]) html += '<p class="fiche-lead">'+FICHE_LEAD[c.id]+'</p>';
       html += '<ul>';
       items.forEach(function(it){ html += '<li>'+it+'</li>'; });
