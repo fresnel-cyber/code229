@@ -770,6 +770,10 @@
     .diag-title{font-size:24px;}
   }
 </style>
+<!-- Vercel Web Analytics : visiteurs uniques / vues, sans cookie. Ne fait rien tant
+     que « Web Analytics » n'est pas activé pour ce projet dans le dashboard Vercel ;
+     n'échoue pas non plus en local (le endpoint /_vercel/insights n'existe juste pas). -->
+<script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 <div class="app-shell" id="app"></div>
