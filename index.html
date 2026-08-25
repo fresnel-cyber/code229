@@ -1965,6 +1965,7 @@
       case 'G1': s='<rect x="6" y="6" width="88" height="88" rx="10" fill="'+SG_WHT+'"/><path d="M20 20 L80 80 M80 20 L20 80" stroke="'+SG_RED+'" stroke-width="11" stroke-linecap="round"/>'; break;
       case 'J3': s='<rect x="40" y="12" width="20" height="76" rx="4" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="2"/><rect x="40" y="20" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="42" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="64" width="20" height="11" fill="'+SG_RED+'"/>'; break;
       case 'J4': s='<rect x="12" y="30" width="76" height="40" rx="5" fill="'+SG_RED+'"/><path d="M28 40 L44 50 L28 60 M48 40 L64 50 L48 60" fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'; break;
+      case 'dangerGenerique': s=sgDanger(''); break;
       default: s='<rect x="12" y="12" width="76" height="76" rx="8" fill="#333"/>';
     }
     return sgWrap(s, size);
@@ -2041,7 +2042,7 @@
     121:'B14', 122:'B14', 127:'A18-1', 128:'B6a1', 129:'J3', 131:'B31', 132:'A1c', 135:'A7-1',
     136:'B31', 137:'AB2', 138:'AB7', 139:'AB1', 140:'AB2', 141:'AB2', 143:'AK22', 144:'B5c',
     145:'B14', 146:'B1', 147:'A13b', 148:'B26', 149:'B14', 150:'A15a1', 151:'B43', 155:'AK5',
-    156:'A1d', 157:'B21c2', 159:'AK5', 167:'B6a1', 179:'B22a', 182:'AK4', 191:'A18', 192:'A13a',
+    156:'A1d', 157:'B21c2', 159:'AK5', 160:'A1d', 161:'dangerGenerique', 167:'B6a1', 179:'B22a', 182:'AK4', 191:'A18', 192:'A13a',
     193:'A13b', 194:'C12', 195:'B7a', 200:'B2b', 201:'B2a', 272:'B3', 273:'B3', 413:'B7b',
     414:'B6d', 416:'B9c', 427:'B43', 452:'B43', 454:'B2c', 455:'B6a1', 456:'B21b', 457:'B43',
     468:'C12', 670:'A21b', 671:'B14', 672:'B14', 682:'B14', 687:'B14', 722:'B2a1', 723:'B3-3',
@@ -2081,7 +2082,8 @@
     'B34':'Fin d\'interdiction de dépasser','B34a':'Fin d\'interdiction de dépasser (PL)','B43':'Fin de vitesse minimale','B45':'Fin de voie réservée aux bus',
     'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage','B14-50':'Vitesse limitée à 50',
     'B14-3':'Vitesse limitée à 60 (deux-roues)','B14-4':'Vitesse limitée à 50 (marchandises)','B14-B25':'Vitesse limitée à 50, minimale 30',
-    'B6a1-1':'Stationnement gratuit à durée limitée','B29-1':'Voie pour véhicules lents (500 m)'
+    'B6a1-1':'Stationnement gratuit à durée limitée','B29-1':'Voie pour véhicules lents (500 m)',
+    'dangerGenerique':'Danger (panneau non précisé)'
   };
   function codeLabel(code){ return CODE_NAME[code] || ('Panneau '+code); }
 
