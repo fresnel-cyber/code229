@@ -183,6 +183,33 @@
   .topbar-stat:hover{border-color:rgba(var(--on-surface-rgb),0.2);}
   .topbar-stat b{color:var(--yellow);font-weight:700;}
 
+  /* ---------- Barre de navigation basse ----------
+     Persistante sur les 4 destinations principales (Accueil / Entraînement /
+     Fiches / Progression) et sur ce qui s'y range juste en dessous (chapitres,
+     badges, audio) ; absente pendant une tâche immersive (quiz, diagnostic,
+     résultats) où elle ne ferait que distraire. `body.has-tabbar` réserve la
+     place en bas pour que le contenu ne passe jamais dessous. */
+  body.has-tabbar .app-shell{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+  .bottom-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    max-width:640px; margin:0 auto;
+    display:flex;
+    background:rgba(var(--surface-rgb),0.92);
+    backdrop-filter:blur(10px);
+    border-top:1px solid rgba(var(--on-surface-rgb),0.08);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .bn-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; padding:7px 4px 6px; cursor:pointer;
+    color:var(--chalk-faint); border-radius:var(--radius-sm);
+    transition:color var(--t) var(--ease);
+  }
+  .bn-item .bn-icon{display:flex;}
+  .bn-item .bn-label{font-size:10.5px; font-weight:500; letter-spacing:0.1px;}
+  .bn-item.active{color:var(--yellow-on-ink);}
+  .bn-item:active{background:rgba(var(--on-surface-rgb),0.06);}
+
   /* ---------- Zebra components (signature element) ---------- */
   .zebra-hero{
     height:34px; border-radius:8px; overflow:hidden; position:relative;
@@ -1680,6 +1707,9 @@
     size = size || 24;
     var body = '';
     switch(name){
+      case 'home':
+        body = '<path d="M6 24 L24 8 L42 24"/><path d="M11 20 V40 H37 V20"/><path d="M20 40 V27 H28 V40"/>';
+        break;
       case 'signal':
         body = '<path d="M24 6 L44 40 H4 Z"/><line x1="24" y1="18" x2="24" y2="27"/><circle cx="24" cy="33" r="1.4" fill="currentColor" stroke="none"/>';
         break;
@@ -2582,7 +2612,7 @@
   function renderBadges(){
     var unlocked = unlockedBadgeIds();
     var html = '<div class="view">';
-    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Retour à l\'accueil">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mes badges</h2></div></div>';
+    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="progression" aria-label="Retour à la progression">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mes badges</h2></div></div>';
     html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">'+unlocked.length+' / '+BADGES.length+' débloqués.</p>';
     html += '<div class="badges-grid">';
     BADGES.forEach(function(b){
@@ -2605,6 +2635,8 @@
     html += renderTopbar();
     switch(state.view){
       case 'home': html += renderHome(); break;
+      case 'train': html += renderTrain(); break;
+      case 'progression': html += renderProgression(); break;
       case 'diagnostic': html += renderDiagnostic(); break;
       case 'chapters': html += renderChapters(); break;
       case 'setup': html += renderSetup(); break;
@@ -2616,6 +2648,9 @@
       case 'empty': html += renderEmptyView(); break;
       default: html += renderHome();
     }
+    var withTabbar = showsBottomNav(state.view);
+    if(withTabbar) html += renderBottomNav();
+    document.body.classList.toggle('has-tabbar', withTabbar);
     app.innerHTML = html;
     bindGlobalEvents();
     if(state.view === 'quiz' && state.session){ renderQuizBody(); startTimer(); }
@@ -2625,6 +2660,8 @@
     if(state.view === 'results'){ bindResultsEvents(); }
     if(state.view === 'chapters'){ bindChaptersEvents(); }
     if(state.view === 'home'){ bindHomeEvents(); }
+    if(state.view === 'train'){ bindCommonActions(document); }
+    if(state.view === 'progression'){ bindProgressionEvents(); }
     if(state.view === 'diagnostic'){ bindDiagnosticEvents(); }
     if(state.view === 'empty'){ bindCommonActions(document); }
   }
@@ -2668,7 +2705,7 @@
         '<div class="brand-text"><b>CODE 229</b><span>Permis de conduire — Bénin</span></div>' +
       '</button>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
-        '<button class="topbar-stat" data-nav="home" aria-label="Taux de réussite'+(om===null?'':' : '+om+'%')+'">' + icon('trophy',15) + '<b>' + (om===null? '—' : om+'%') + '</b></button>' +
+        '<button class="topbar-stat" data-nav="progression" aria-label="Taux de réussite'+(om===null?'':' : '+om+'%')+'">' + icon('trophy',15) + '<b>' + (om===null? '—' : om+'%') + '</b></button>' +
         '<button class="icon-btn" style="width:38px;height:38px;" data-action="open-display-settings" aria-label="Réglages d\'affichage">' + icon('contrast',16) + '</button>' +
       '</div>' +
     '</div></div>';
@@ -2752,8 +2789,17 @@
       '</button>';
     }
 
-    // 4. Autres entraînements (en retrait)
-    html += '<div class="section-title">Autres entraînements</div>';
+    html += '</div>';
+    return html;
+  }
+
+  /* Onglet "Entraînement" : tous les modes de session, en retrait de l'accueil
+     pour que celui-ci reste concentré sur l'unique prochaine action (la session
+     du jour). Rien n'est perdu, juste rangé dans sa propre pièce. */
+  function renderTrain(){
+    var flaggedCnt = progress.flagged.length;
+    var html = '<div class="view">';
+    html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Entraînement</h2></div></div>';
     html += '<div class="tiles-grid">';
     html += '<button class="tile tile-signs tile-wide" data-action="start-signs">' +
       '<div style="display:flex;align-items:center;gap:12px;min-width:0;">' +
@@ -2773,23 +2819,29 @@
     html += '<button class="tile tile-flagged" data-action="start-flagged">' +
       '<div class="tile-icon">'+icon('bookmark',20)+'</div>' +
       '<h3>Marquées'+(flaggedCnt?' ('+flaggedCnt+')':'')+'</h3><p>Les questions que tu as mises de côté.</p></button>';
-    html += '<button class="tile tile-badges" data-nav="badges">' +
-      '<div class="tile-icon">'+icon('medal',20)+'</div>' +
-      '<h3>Mes badges</h3><p>'+unlockedBadgeIds().length+'/'+BADGES.length+' débloqués.</p></button>';
-    html += '<button class="tile tile-fiches tile-wide" data-nav="fiches">' +
-      '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('book',20)+'</div><div><h3>Fiches de révision</h3><p>L\'essentiel de chaque chapitre, à lire d\'un coup d\'œil.</p></div></div>' +
-      icon('chevron',16) +
-      '</button>';
-    html += '<button class="tile tile-audio tile-wide" data-nav="audio">' +
-      '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('headphones',20)+'</div><div><h3>Mode audio</h3><p>Écoute tes fiches, mains libres — écouteurs et en route.</p></div></div>' +
-      icon('chevron',16) +
-      '</button>';
     html += '</div>';
+    html += '</div>';
+    return html;
+  }
 
-    // 5. Ce qui t'attend — progression par chapitre
-    html += '<div class="section-title">Ta progression par chapitre</div>';
+  /* Onglet "Progression" : tout ce qui regarde en arrière (maîtrise par
+     chapitre, badges, sauvegarde) — consulté par choix, jamais imposé au
+     premier écran. */
+  function renderProgression(){
+    var om = overallMastery();
+    var html = '<div class="view">';
+    html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Progression</h2></div></div>';
+    html += '<div class="status-card">' +
+      '<div class="status-num" style="color:'+(om===null?'var(--chalk-dim)':probColorVar(om))+';">'+(om===null?'—':om)+'<small>%</small></div>' +
+      '<div class="status-body"><div class="status-label">Taux de réussite global</div>' +
+      '<div class="status-phrase">Calculé sur toutes les questions déjà vues.</div></div>' +
+    '</div>';
+    html += '<button class="tile tile-badges tile-wide" data-nav="badges">' +
+      '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('medal',20)+'</div><div><h3>Mes badges</h3><p>'+unlockedBadgeIds().length+'/'+BADGES.length+' débloqués.</p></div></div>' +
+      icon('chevron',16) +
+      '</button>';
+    html += '<div class="section-title">Par chapitre</div>';
     html += renderChapterList(true);
-
     html += '<div class="backup-row">' +
       (isOfflineReady()
         ? '<button class="backup-btn" data-action="precache-offline">'+icon('check',13)+'<span>Disponible hors-ligne · actualiser</span></button>'
@@ -2799,8 +2851,31 @@
       '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
     '</div>';
     html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — tu peux l\'envoyer ci-dessus (WhatsApp, e-mail…) pour la garder.<br><span class="footer-credit">Made by Anticip\'</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
-
     html += '</div>';
+    return html;
+  }
+
+  /* ---------- Barre de navigation basse (Accueil / Entraînement / Fiches /
+     Progression) : toujours visible sauf pendant une tâche immersive (quiz,
+     diagnostic, réglage de session, résultats) où elle distrairait plus
+     qu'elle n'aiderait. */
+  var TAB_VIEWS = {home:'home', train:'train', chapters:'train', fiches:'fiches', audio:'fiches', progression:'progression', badges:'progression'};
+  function showsBottomNav(view){ return !!TAB_VIEWS[view]; }
+  function renderBottomNav(){
+    var active = TAB_VIEWS[state.view] || 'home';
+    var tabs = [
+      {id:'home', label:'Accueil', icon:'home'},
+      {id:'train', label:'Entraînement', icon:'target'},
+      {id:'fiches', label:'Fiches', icon:'book'},
+      {id:'progression', label:'Progression', icon:'trophy'}
+    ];
+    var html = '<nav class="bottom-nav" aria-label="Navigation principale">';
+    tabs.forEach(function(t){
+      html += '<button class="bn-item'+(active===t.id?' active':'')+'" data-nav="'+t.id+'" aria-current="'+(active===t.id?'page':'false')+'">' +
+        '<span class="bn-icon">'+icon(t.icon,21)+'</span><span class="bn-label">'+t.label+'</span>' +
+      '</button>';
+    });
+    html += '</nav>';
     return html;
   }
 
@@ -2823,7 +2898,7 @@
 
   function renderChapters(){
     var html = '<div class="view">';
-    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Retour à l\'accueil">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Choisis un chapitre</h2></div></div>';
+    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="train" aria-label="Retour à l\'entraînement">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Choisis un chapitre</h2></div></div>';
     html += '<button class="chapter-card" data-chapter="ALL" style="margin-top:6px;">' +
       '<div class="chapter-icon">'+icon('book',22)+'</div>' +
       '<div class="chapter-body"><h4>Toutes les questions</h4><p>Un mélange de tout le programme</p></div>' +
@@ -3183,9 +3258,17 @@
   }
 
   function renderFiches(){
-    var back = (state.fichesReturn === 'quiz' && state.session) ? 'quiz' : 'home';
+    // Depuis un quiz en cours ("Revoir la fiche"), on garde un vrai bouton retour
+    // vers ce quiz. Ouvertes via l'onglet, les fiches sont une destination à
+    // part entière : la barre de navigation basse suffit à en sortir.
+    var fromQuiz = state.fichesReturn === 'quiz' && state.session;
     var html = '<div class="view">';
-    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="'+back+'" aria-label="'+(back==='quiz'?'Retour au quiz':'Retour à l\'accueil')+'">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Fiches de révision</h2>'+(back==='quiz'?'<span class="fiche-return-hint">Reviens à ton quiz quand tu veux</span>':'')+'</div></div>';
+    html += '<div class="quiz-topbar">' +
+      (fromQuiz ? '<button class="icon-btn" data-nav="quiz" aria-label="Retour au quiz">'+icon('back',18)+'</button>' : '') +
+      '<div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Fiches de révision</h2>' +
+      (fromQuiz ? '<span class="fiche-return-hint">Reviens à ton quiz quand tu veux</span>' : '') + '</div>' +
+      '<button class="icon-btn" style="margin-left:auto;" data-nav="audio" aria-label="Mode audio">'+icon('headphones',18)+'</button>' +
+    '</div>';
     html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">L\'essentiel à retenir, chapitre par chapitre. Touche un titre pour déplier.</p>';
     CHAPTER_META.forEach(function(c){
       var open = !!state.ficheOpen[c.id];
@@ -3419,7 +3502,7 @@
 
   function renderAudio(){
     var html = '<div class="view">';
-    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Retour à l\'accueil">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mode audio</h2></div></div>';
+    html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="fiches" aria-label="Retour aux fiches">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Mode audio</h2></div></div>';
 
     if(!AP.supported){
       html += '<div class="audio-unsupported">'+icon('headphones',36)+'<p>La lecture à voix haute n\'est pas prise en charge par ce navigateur.<br>Essaie avec Chrome ou le navigateur par défaut de ton téléphone.</p></div>';
@@ -3582,6 +3665,11 @@
   }
 
   function bindHomeEvents(){
+    bindCommonActions(document);
+  }
+
+  /* Sauvegarde/export vivent dans l'onglet Progression (plus sur l'accueil). */
+  function bindProgressionEvents(){
     bindCommonActions(document);
     var pre = document.querySelector('[data-action="precache-offline"]');
     if(pre) pre.addEventListener('click', precacheOffline);
