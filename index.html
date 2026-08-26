@@ -453,17 +453,7 @@
   .tag-right{background:rgba(44,170,107,0.2); color:#7be0ac;}
 
   /* ---------- Fiches ---------- */
-  .fiche-card{
-    background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.07); border-radius:var(--radius-md);
-    margin-bottom:10px; overflow:hidden;
-  }
-  .fiche-head{display:flex; align-items:center; gap:12px; padding:14px; cursor:pointer;}
-  .fiche-head h4{margin:0; font-family:var(--font-display); font-size:15px; font-weight:600; flex:1;}
-  .fiche-chevron{transition:transform .2s ease; color:var(--chalk-faint); flex-shrink:0;}
-  .fiche-card.open .fiche-chevron{transform:rotate(180deg);}
-  .fiche-content{max-height:0; overflow:hidden; transition:max-height .3s ease;}
-  .fiche-card.open .fiche-content{max-height:2000px;}
-  .fiche-content-inner{padding:0 16px 16px 16px;}
+  .fiche-content-inner{padding:0;}
   .fiche-content-inner ul{margin:0; padding-left:0; list-style:none; display:flex; flex-direction:column; gap:9px;}
   .fiche-content-inner li{position:relative; padding-left:20px; font-size:13px; line-height:1.5; color:var(--chalk-dim);}
   /* puce = trait de marquage routier jaune */
@@ -733,9 +723,6 @@
   .settings-label{display:block; font-family:var(--font-mono); font-size:11px; letter-spacing:.5px; text-transform:uppercase; color:var(--chalk-faint); margin-bottom:8px;}
 
   /* ---------- Fiches : lisibilité ---------- */
-  .fiche-head-text{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
-  .fiche-head-text h4{margin:0;}
-  .fiche-head-text span{font-size:11.5px; color:var(--chalk-faint);}
   .fiche-lead{font-size:13px; color:var(--chalk); font-weight:500; margin:0 0 12px; line-height:1.45; padding-bottom:12px; border-bottom:2px dashed rgba(var(--on-surface-rgb),0.14);}
   .fiche-return-hint{display:block; font-size:11.5px; color:var(--chalk-faint); margin-top:2px;}
 
@@ -2212,7 +2199,7 @@
     view: 'home',
     session: null,     // active quiz/exam session
     lastSession: null,  // for results view
-    ficheOpen: {},
+    ficheChapter: null, // null = liste des chapitres ; sinon id du chapitre affiché en plein écran
     panfrOpen: false,   // bibliothèque élargie « aller plus loin » repliée par défaut
     panfrCat: null       // filtre catégorie de la bibliothèque élargie (null = toutes)
   };
@@ -3258,36 +3245,53 @@
   }
 
   function renderFiches(){
+    var meta = state.ficheChapter ? CHAPTER_META.filter(function(c){return c.id===state.ficheChapter;})[0] : null;
     // Depuis un quiz en cours ("Revoir la fiche"), on garde un vrai bouton retour
-    // vers ce quiz. Ouvertes via l'onglet, les fiches sont une destination à
-    // part entière : la barre de navigation basse suffit à en sortir.
-    var fromQuiz = state.fichesReturn === 'quiz' && state.session;
+    // vers ce quiz — le détour est direct sur le chapitre visé, pas la peine de
+    // repasser par la liste. Ouvertes via l'onglet, les fiches sont une
+    // destination à part entière : la barre de navigation basse suffit à en sortir.
+    var fromQuiz = state.fichesReturn === 'quiz' && state.session && meta;
+    if(!meta) return renderFicheList(fromQuiz);
+    return renderFicheDetail(meta, fromQuiz);
+  }
+
+  function renderFicheList(){
     var html = '<div class="view">';
     html += '<div class="quiz-topbar">' +
-      (fromQuiz ? '<button class="icon-btn" data-nav="quiz" aria-label="Retour au quiz">'+icon('back',18)+'</button>' : '') +
-      '<div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Fiches de révision</h2>' +
-      (fromQuiz ? '<span class="fiche-return-hint">Reviens à ton quiz quand tu veux</span>' : '') + '</div>' +
+      '<div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Fiches de révision</h2></div>' +
       '<button class="icon-btn" style="margin-left:auto;" data-nav="audio" aria-label="Mode audio">'+icon('headphones',18)+'</button>' +
     '</div>';
-    html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">L\'essentiel à retenir, chapitre par chapitre. Touche un titre pour déplier.</p>';
+    html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">L\'essentiel à retenir, chapitre par chapitre. Touche un chapitre pour l\'ouvrir.</p>';
     CHAPTER_META.forEach(function(c){
-      var open = !!state.ficheOpen[c.id];
-      var items = FICHES[c.id] || [];
-      html += '<div class="fiche-card'+(open?' open':'')+'" id="fiche-'+c.id+'" data-fiche="'+c.id+'">';
-      html += '<div class="fiche-head" data-fiche-toggle="'+c.id+'">' +
-        '<div class="chapter-icon" style="width:36px;height:36px;">'+icon(c.icon,18)+'</div>' +
-        '<div class="fiche-head-text"><h4>'+c.title+'</h4><span>'+(c.sub||'')+'</span></div>' + '<span class="fiche-chevron">'+icon('chevron',16)+'</span>' +
-      '</div>';
-      html += '<div class="fiche-content"><div class="fiche-content-inner">';
-      if(c.id === 'II'){ html += renderPanneauxFRSection(); }
-      if(FICHE_LEAD[c.id]) html += '<p class="fiche-lead">'+FICHE_LEAD[c.id]+'</p>';
-      html += '<ul>';
-      items.forEach(function(it){ html += '<li>'+it+'</li>'; });
-      html += '</ul>';
-      if(c.id === 'II'){ html += renderSignGallery(); }
-      html += '</div></div>';
-      html += '</div>';
+      html += '<button class="chapter-card" data-fiche-open="'+c.id+'">' +
+        '<div class="chapter-icon">'+icon(c.icon,22)+'</div>' +
+        '<div class="chapter-body"><h4>'+c.title+'</h4><p>'+(c.sub||'')+'</p></div>' +
+        '<span style="color:var(--chalk-faint);flex-shrink:0;display:flex;">'+icon('chevron',16)+'</span>' +
+      '</button>';
     });
+    html += '</div>';
+    return html;
+  }
+
+  function renderFicheDetail(meta, fromQuiz){
+    var items = FICHES[meta.id] || [];
+    var html = '<div class="view">';
+    html += '<div class="quiz-topbar">' +
+      (fromQuiz
+        ? '<button class="icon-btn" data-nav="quiz" aria-label="Retour au quiz">'+icon('back',18)+'</button>'
+        : '<button class="icon-btn" data-action="fiche-back-list" aria-label="Retour aux fiches">'+icon('back',18)+'</button>') +
+      '<div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">'+meta.title+'</h2>' +
+      (fromQuiz ? '<span class="fiche-return-hint">Reviens à ton quiz quand tu veux</span>' : '') + '</div>' +
+      '<button class="icon-btn" style="margin-left:auto;" data-audio-chapter="'+meta.id+'" aria-label="Écouter ce chapitre">'+icon('headphones',18)+'</button>' +
+    '</div>';
+    html += '<div class="fiche-content-inner">';
+    if(meta.id === 'II'){ html += renderPanneauxFRSection(); }
+    if(FICHE_LEAD[meta.id]) html += '<p class="fiche-lead">'+FICHE_LEAD[meta.id]+'</p>';
+    html += '<ul>';
+    items.forEach(function(it){ html += '<li>'+it+'</li>'; });
+    html += '</ul>';
+    if(meta.id === 'II'){ html += renderSignGallery(); }
+    html += '</div>';
     html += '</div>';
     return html;
   }
@@ -3593,7 +3597,15 @@
   /* ---------------- Event binding ---------------- */
   function bindGlobalEvents(){
     document.querySelectorAll('[data-nav]').forEach(function(btn){
-      btn.addEventListener('click', function(){ goto(btn.getAttribute('data-nav')); });
+      btn.addEventListener('click', function(){
+        var view = btn.getAttribute('data-nav');
+        // Rejoindre "Fiches" par un lien générique (onglet, retour du mode audio…)
+        // ramène toujours à la liste des chapitres, jamais à un chapitre resté
+        // ouvert par hasard, et oublie un éventuel "retour au quiz" hérité d'un
+        // détour précédent — seul openFiche() (depuis "Revoir la fiche" en plein
+        // quiz) doit pouvoir déclencher ce raccourci.
+        goto(view, view === 'fiches' ? {ficheChapter: null, fichesReturn: 'home'} : null);
+      });
     });
     var settingsBtn = document.querySelector('[data-action="open-display-settings"]');
     if(settingsBtn) settingsBtn.addEventListener('click', openDisplaySettings);
@@ -3628,13 +3640,14 @@
   function startSigns(){ state.session = buildSignSession(14); goto('quiz'); }
   function startSignsFR(){ state.session = buildSignSessionFR(14, state.panfrCat); goto('quiz'); }
   function openFiche(chap){
-    if(chap) state.ficheOpen[chap] = true;
     state.fichesReturn = state.session ? 'quiz' : 'home';
-    goto('fiches');
-    if(chap){
-      var target = el('fiche-'+chap);
-      if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
-    }
+    goto('fiches', {ficheChapter: chap || null});
+  }
+  /* Ouvre le mode audio directement sur le chapitre consulté (depuis l'icône
+     casque d'une fiche) — plus fluide que d'atterrir sur le premier chapitre. */
+  function openAudioFor(chapId){
+    goto('audio');
+    apJumpToChapter(chapId);
   }
 
   /* Actions communes déclenchées par [data-action] hors quiz */
@@ -3904,12 +3917,20 @@
 
   function bindFichesEvents(){
     bindCommonActions(document);
-    document.querySelectorAll('[data-fiche-toggle]').forEach(function(btn){
+    document.querySelectorAll('[data-fiche-open]').forEach(function(btn){
       btn.addEventListener('click', function(){
-        var id = btn.getAttribute('data-fiche-toggle');
-        state.ficheOpen[id] = !state.ficheOpen[id];
-        render();
+        // fichesReturn: 'home' explicite — seul openFiche() (depuis un quiz en
+        // cours) doit pouvoir armer le raccourci "retour au quiz".
+        goto('fiches', {ficheChapter: btn.getAttribute('data-fiche-open'), fichesReturn: 'home'});
       });
+    });
+    var backBtn = document.querySelector('[data-action="fiche-back-list"]');
+    if(backBtn) backBtn.addEventListener('click', function(){
+      goto('fiches', {ficheChapter: null, fichesReturn: 'home'});
+    });
+    var audioBtn = document.querySelector('[data-audio-chapter]');
+    if(audioBtn) audioBtn.addEventListener('click', function(){
+      openAudioFor(audioBtn.getAttribute('data-audio-chapter'));
     });
     document.querySelectorAll('[data-panfr-cat]').forEach(function(chip){
       chip.addEventListener('click', function(){
