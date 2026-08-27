@@ -2823,10 +2823,12 @@
       '<div class="status-body"><div class="status-label">Taux de réussite global</div>' +
       '<div class="status-phrase">Calculé sur toutes les questions déjà vues.</div></div>' +
     '</div>';
+    html += '<div class="tiles-grid">';
     html += '<button class="tile tile-badges tile-wide" data-nav="badges">' +
       '<div style="display:flex;align-items:center;gap:12px;"><div class="tile-icon">'+icon('medal',20)+'</div><div><h3>Mes badges</h3><p>'+unlockedBadgeIds().length+'/'+BADGES.length+' débloqués.</p></div></div>' +
       icon('chevron',16) +
       '</button>';
+    html += '</div>';
     html += '<div class="section-title">Par chapitre</div>';
     html += renderChapterList(true);
     html += '<div class="backup-row">' +
