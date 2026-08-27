@@ -135,6 +135,18 @@
     font-family:var(--font-body);
     -webkit-font-smoothing:antialiased;
     min-height:100vh;
+    /* Sélection de texte désactivée par défaut : en PWA installée, un
+       appui long sur un libellé de bouton/carte (ex. un badge) ouvre le
+       menu de sélection natif du téléphone (Copier/Partager, barre de
+       recherche Google...) — ça casse net l'impression d'app native.
+       Réactivée explicitement plus bas sur le vrai contenu à lire/copier
+       (question, réponses, fiches). */
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;
+  }
+  .question-text, .explain-body, .fiche-content-inner, .fiche-lead{
+    -webkit-user-select:text; user-select:text;
+    -webkit-touch-callout:default;
   }
 
   ::selection{background:var(--yellow-on-ink);color:var(--ink-on-accent);}
