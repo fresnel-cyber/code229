@@ -426,6 +426,13 @@
   .option-btn.incorrect .option-badge{background:var(--red); color:white; border-color:var(--red);}
   .option-btn.disabled{cursor:default;}
   .option-btn.faded{opacity:0.5;}
+  /* Check/croix en plus de la couleur : le vert/rouge seul ne suffit pas à
+     distinguer juste/faux pour un daltonien (rouge-vert, ~8% des hommes) —
+     un signal important à cet endroit précis, celui où on apprend si sa
+     réponse était bonne. */
+  .option-status{margin-left:auto; flex-shrink:0; display:flex;}
+  .option-btn.correct .option-status{color:var(--green);}
+  .option-btn.incorrect .option-status{color:var(--red);}
 
   .feedback-banner{
     margin-top:16px; padding:12px 15px; border-radius:var(--radius-md); font-size:13.5px; font-weight:500;
@@ -3070,16 +3077,17 @@
       var classes = ['option-btn'];
       var isPicked = picked.indexOf(letter) !== -1;
       var isAnswer = q.answers.indexOf(letter) !== -1;
+      var statusIcon = '';
       if(validated && isPractice){
-        if(isAnswer) classes.push('correct');
-        else if(isPicked && !isAnswer) classes.push('incorrect');
+        if(isAnswer){ classes.push('correct'); statusIcon = '<span class="option-status" aria-hidden="true">'+icon('check',16)+'</span>'; }
+        else if(isPicked && !isAnswer){ classes.push('incorrect'); statusIcon = '<span class="option-status" aria-hidden="true">'+icon('x',16)+'</span>'; }
         else classes.push('faded');
         classes.push('disabled');
       } else if(isPicked){
         classes.push('selected');
       }
       html += '<button class="'+classes.join(' ')+'" data-letter="'+letter+'" '+((validated && isPractice)?'disabled':'')+'>' +
-        '<span class="option-badge">'+letter.toUpperCase()+'</span><span>'+escapeHtml(q.options[letter])+'</span>' +
+        '<span class="option-badge">'+letter.toUpperCase()+'</span><span>'+escapeHtml(q.options[letter])+'</span>' + statusIcon +
       '</button>';
     });
     html += '</div>';
