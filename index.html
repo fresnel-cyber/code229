@@ -250,7 +250,10 @@
   /* ---------- Layout / views ---------- */
   .app-shell{min-width:0;}
   .view{padding:18px 18px 100px;animation:fadeUp .35s ease;min-width:0;}
-  @keyframes fadeUp{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+  /* Pas de transform ici : un ancêtre animé par transform crée un contexte de
+     positionnement parasite pour tout descendant en position:sticky (ex. le
+     header de vue .quiz-topbar), qui se figeait alors avec un décalage. */
+  @keyframes fadeUp{from{opacity:0;}to{opacity:1;}}
   @media (prefers-reduced-motion: reduce){
     *{animation-duration:0.001s !important; transition-duration:0.001s !important;}
   }
@@ -371,7 +374,11 @@
   .mode-toggle button.active{background:var(--yellow-on-ink); color:var(--ink-on-accent); font-weight:700;}
 
   /* ---------- Quiz ---------- */
-  .quiz-topbar{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .quiz-topbar{
+    display:flex; align-items:center; gap:10px; margin:0 -18px 14px; padding:14px 18px 10px;
+    position:sticky; top:73px; z-index:35; background:var(--asphalt);
+    border-bottom:1px solid rgba(var(--on-surface-rgb),0.06);
+  }
   .quiz-meta{flex:1; min-width:0;}
   .quiz-meta-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
   .quiz-tag{font-family:var(--font-mono); font-size:11.5px; color:var(--chalk-faint); text-transform:uppercase; letter-spacing:0.5px;}
