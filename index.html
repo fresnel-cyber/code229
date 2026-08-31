@@ -2085,6 +2085,18 @@
       case 'J3': s='<rect x="40" y="12" width="20" height="76" rx="4" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="2"/><rect x="40" y="20" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="42" width="20" height="11" fill="'+SG_RED+'"/><rect x="40" y="64" width="20" height="11" fill="'+SG_RED+'"/>'; break;
       case 'J4': s='<rect x="12" y="30" width="76" height="40" rx="5" fill="'+SG_RED+'"/><path d="M28 40 L44 50 L28 60 M48 40 L64 50 L48 60" fill="none" stroke="'+SG_WHT+'" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>'; break;
       case 'dangerGenerique': s=sgDanger(''); break;
+      case 'entreeAgglo':
+        s='<rect x="4" y="4" width="92" height="92" rx="6" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="3"/>' +
+          '<path d="M22 68 V44 L34 34 L46 44 V68 Z" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linejoin="round"/>' +
+          '<path d="M50 68 V38 L66 26 L82 38 V68 Z" fill="none" stroke="'+SG_BLK+'" stroke-width="4" stroke-linejoin="round"/>' +
+          '<line x1="14" y1="68" x2="90" y2="68" stroke="'+SG_BLK+'" stroke-width="4"/>';
+        break;
+      case 'voieDetresse': s=sgIndic(sgArrow(SG_WHT, 35)); break;
+      case 'panonceauGenerique':
+        s='<rect x="14" y="30" width="72" height="40" rx="3" fill="'+SG_WHT+'" stroke="'+SG_BLK+'" stroke-width="3"/>' +
+          '<line x1="26" y1="44" x2="74" y2="44" stroke="'+SG_BLK+'" stroke-width="4"/>' +
+          '<line x1="26" y1="56" x2="60" y2="56" stroke="'+SG_BLK+'" stroke-width="4"/>';
+        break;
       default: s='<rect x="12" y="12" width="76" height="76" rx="8" fill="#333"/>';
     }
     return sgWrap(s, size);
@@ -2150,6 +2162,7 @@
      QUESTIONS puis figée. Remplace l'ancien matching approximatif par sous-chaînes. */
   var QSIGN = {
     15:'C13', 17:'A15c', 18:'A19', 19:'A21a', 22:'AB6', 23:'A1d', 24:'A3a1', 30:'A21b',
+    130:'entreeAgglo', 190:'B8', 205:'voieDetresse', 928:'panonceauGenerique',
     31:'A20', 32:'A16', 33:'A6', 34:'B6a1', 35:'B6a1', 36:'B6b1', 37:'B0', 38:'B7a',
     39:'B25', 40:'B21-1', 41:'J4', 43:'A25', 44:'B15', 45:'A18', 46:'A18', 47:'B15',
     48:'B1', 49:'B8', 50:'B18a', 51:'A1c', 53:'B12', 54:'B34a', 55:'B45', 56:'B27',
@@ -2202,7 +2215,8 @@
     'C12':'Sens unique','C13':'Voie sans issue','G1':'Passage à niveau','J3':'Balise d\'intersection','J4':'Balise de virage','B14-50':'Vitesse limitée à 50',
     'B14-3':'Vitesse limitée à 60 (deux-roues)','B14-4':'Vitesse limitée à 50 (marchandises)','B14-B25':'Vitesse limitée à 50, minimale 30',
     'B6a1-1':'Stationnement gratuit à durée limitée','B29-1':'Voie pour véhicules lents (500 m)',
-    'dangerGenerique':'Danger (panneau non précisé)'
+    'dangerGenerique':'Danger (panneau non précisé)',
+    'entreeAgglo':'Entrée d\'agglomération', 'voieDetresse':'Voie de détresse', 'panonceauGenerique':'Panonceau'
   };
   function codeLabel(code){ return CODE_NAME[code] || ('Panneau '+code); }
 
