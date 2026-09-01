@@ -543,6 +543,20 @@
   .status-body{min-width:0;}
   .status-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--chalk-faint);}
   .status-phrase{font-size:13.5px; color:var(--chalk-dim); line-height:1.4; margin-top:3px;}
+
+  /* ---------- Compte (connexion Google optionnelle) ---------- */
+  .account-card{
+    background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.07); border-radius:var(--radius-lg);
+    padding:16px 18px; margin-bottom:14px;
+  }
+  .account-pitch{margin:0 0 12px; font-size:13px; color:var(--chalk-dim); line-height:1.45;}
+  .account-google-btn{display:flex; align-items:center; justify-content:center; gap:10px;}
+  .account-row{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
+  .account-avatar{width:40px; height:40px; border-radius:50%; flex-shrink:0; object-fit:cover;}
+  .account-avatar-fallback{background:var(--asphalt-3); color:var(--chalk-faint); display:flex; align-items:center; justify-content:center;}
+  .account-info{min-width:0; display:flex; flex-direction:column; gap:1px;}
+  .account-info b{font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .account-info span{font-size:11.5px; color:var(--chalk-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   /* ---------- Streak : enjeu visible (loss aversion, à la Duolingo) ---------- */
   .streak-banner{
     display:flex; align-items:center; gap:12px; margin-top:10px; padding:12px 14px;
@@ -837,6 +851,16 @@
      que « Web Analytics » n'est pas activé pour ce projet dans le dashboard Vercel ;
      n'échoue pas non plus en local (le endpoint /_vercel/insights n'existe juste pas). -->
 <script defer src="/_vercel/insights/script.js"></script>
+<!-- Firebase (Auth + Firestore) : compte optionnel, sauvegarde cloud de la
+     progression. SDK "compat" (pas modulaire) pour rester utilisable depuis la
+     grosse IIFE classique du script principal, sans étape de build. Chargés en
+     synchrone (pas de defer/async) et AVANT le script principal, pour que
+     `window.firebase` existe déjà quand celui-ci s'exécute — si ces scripts
+     échouent à charger (hors-ligne), `firebase` reste simplement indéfini et
+     tout le module cloud sync se désactive tout seul (voir plus bas). -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
 <div class="app-shell" id="app"></div>
@@ -1318,6 +1342,110 @@
 
   function saveProgress(){
     try{ window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }catch(e){}
+    if(suppressNextCloudPush){ suppressNextCloudPush = false; return; }
+    pushCloudProgress();
+  }
+
+  /* ---------------- Compte Google + synchronisation cloud (Firebase) ----------------
+     Optionnel : le mode local (sans compte, localStorage) reste le comportement
+     par défaut, inchangé — la connexion Google n'est qu'une option en plus pour
+     sauvegarder dans le cloud et retrouver sa progression sur un autre appareil.
+     Si les scripts Firebase (chargés dans <head>) n'ont pas pu charger
+     (hors-ligne, PWA sans réseau au premier lancement), `window.firebase` reste
+     indéfini et tout ce module se désactive tout seul, silencieusement — l'app
+     continue de fonctionner en local exactement comme avant. */
+  var CLOUD_ENABLED = (typeof firebase !== 'undefined');
+  var auth = null, db = null;
+  if(CLOUD_ENABLED){
+    try{
+      firebase.initializeApp({
+        apiKey: "AIzaSyA4c4HQ4wSJPJZ5szc6JAp1jpkc6hd6SNI",
+        authDomain: "code229-978a6.firebaseapp.com",
+        projectId: "code229-978a6",
+        storageBucket: "code229-978a6.firebasestorage.app",
+        messagingSenderId: "79502244122",
+        appId: "1:79502244122:web:5cb118c02a549807f694a3",
+        measurementId: "G-6CEQEXT0ZK"
+      });
+      auth = firebase.auth();
+      db = firebase.firestore();
+    }catch(e){ CLOUD_ENABLED = false; }
+  }
+
+  var cloudPushTimer = null;
+  // Évite de renvoyer vers le cloud la donnée qu'on vient tout juste d'en recevoir
+  // (sinon un aller-retour inutile à chaque connexion qui adopte le cloud).
+  var suppressNextCloudPush = false;
+
+  function signInWithGoogle(){
+    if(!CLOUD_ENABLED){ toast('Connexion indisponible hors-ligne.'); return; }
+    auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+  }
+  function signOutUser(){
+    if(!CLOUD_ENABLED || !auth) return;
+    auth.signOut().then(function(){
+      state.user = null;
+      render();
+      toast('Déconnecté.');
+    });
+  }
+
+  /* Écriture cloud "routine" (à chaque mutation de progress via saveProgress),
+     debounced pour ne pas écrire à chaque clic pendant un quiz. */
+  function pushCloudProgress(){
+    if(!CLOUD_ENABLED || !state.user || !db) return;
+    clearTimeout(cloudPushTimer);
+    cloudPushTimer = setTimeout(function(){
+      db.collection('users').doc(state.user.uid).set(progress).catch(function(){});
+    }, 2000);
+  }
+  /* Écriture cloud immédiate (à la connexion, quand on choisit de garder la
+     version locale) — pas de raison d'attendre 2s dans ce cas précis. */
+  function pushCloudProgressNow(){
+    if(!CLOUD_ENABLED || !state.user || !db) return;
+    db.collection('users').doc(state.user.uid).set(progress).catch(function(){});
+  }
+
+  /* À la connexion : si le cloud a déjà une progression ET que l'appareil a une
+     progression locale non triviale, on demande à l'utilisateur laquelle garder
+     — pas de fusion automatique (deux appareils utilisés en parallèle, lequel
+     ferait foi ?). Sinon on adopte l'autre sans rien demander. */
+  function reconcileCloudProgress(user){
+    db.collection('users').doc(user.uid).get().then(function(doc){
+      var cloudData = doc.exists ? doc.data() : null;
+      var hasLocal = progress.totalAnswered > 0;
+      var hasCloud = cloudData && typeof cloudData === 'object' && cloudData.totalAnswered > 0;
+      function adoptCloud(){
+        suppressNextCloudPush = true;
+        progress = normalizeProgress(cloudData);
+        saveProgress();
+        render();
+      }
+      if(hasCloud && hasLocal){
+        customConfirm(
+          'Une progression est déjà sauvegardée dans le cloud pour ce compte. Tu veux la reprendre (elle remplacera celle de cet appareil), ou garder celle de cet appareil (elle remplacera le cloud) ?',
+          {okLabel:'Reprendre le cloud', cancelLabel:'Garder cet appareil'}
+        ).then(function(useCloud){ if(useCloud) adoptCloud(); else pushCloudProgressNow(); });
+      } else if(hasCloud && !hasLocal){
+        adoptCloud();
+      } else {
+        pushCloudProgressNow();
+      }
+    }).catch(function(){});
+  }
+
+  if(CLOUD_ENABLED){
+    auth.getRedirectResult().catch(function(){ toast('Connexion impossible : réessaie.'); });
+    auth.onAuthStateChanged(function(user){
+      var wasSignedIn = !!state.user;
+      if(user){
+        state.user = {uid:user.uid, email:user.email, displayName:user.displayName, photoURL:user.photoURL};
+        if(!wasSignedIn) reconcileCloudProgress(state.user);
+      } else {
+        state.user = null;
+      }
+      if(state.view === 'progression') render();
+    });
   }
 
   /* Sauvegarde de la session de quiz/examen EN COURS (pas encore terminée),
@@ -2317,7 +2445,8 @@
     lastSession: null,  // for results view
     ficheChapter: null, // null = liste des chapitres ; sinon id du chapitre affiché en plein écran
     panfrOpen: false,   // bibliothèque élargie « aller plus loin » repliée par défaut
-    panfrCat: null       // filtre catégorie de la bibliothèque élargie (null = toutes)
+    panfrCat: null,      // filtre catégorie de la bibliothèque élargie (null = toutes)
+    user: null           // {uid,email,displayName,photoURL} si connecté avec Google, sinon null
   };
   var timerInterval = null;
 
@@ -2979,6 +3108,28 @@
     var om = overallMastery();
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Progression</h2></div></div>';
+    // Compte optionnel : le mode local reste inchangé par défaut, la connexion
+    // Google n'est qu'une option en plus pour sauvegarder dans le cloud et
+    // retrouver sa progression sur un autre appareil.
+    if(state.user){
+      html += '<div class="account-card">' +
+        '<div class="account-row">' +
+          (state.user.photoURL
+            ? '<img class="account-avatar" src="'+escapeHtml(state.user.photoURL)+'" alt="" referrerpolicy="no-referrer">'
+            : '<div class="account-avatar account-avatar-fallback">'+icon('help',18)+'</div>') +
+          '<div class="account-info"><b>'+escapeHtml(state.user.displayName||'Connecté')+'</b><span>'+escapeHtml(state.user.email||'')+'</span></div>' +
+        '</div>' +
+        '<button class="btn btn-ghost btn-block" data-action="sign-out">Se déconnecter</button>' +
+      '</div>';
+    } else if(CLOUD_ENABLED){
+      html += '<div class="account-card">' +
+        '<p class="account-pitch">Sauvegarde ta progression dans le cloud et retrouve-la sur un autre appareil.</p>' +
+        '<button class="btn btn-primary btn-block account-google-btn" data-action="sign-in-google">' +
+          '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>' +
+          '<span>Se connecter avec Google</span>' +
+        '</button>' +
+      '</div>';
+    }
     html += '<div class="status-card">' +
       '<div class="status-num" style="color:'+(om===null?'var(--chalk-dim)':probColorVar(om))+';">'+(om===null?'—':om)+'<small>%</small></div>' +
       '<div class="status-body"><div class="status-label">Taux de réussite global</div>' +
@@ -3895,6 +4046,10 @@
         fileInput.value = '';
       });
     }
+    var signIn = document.querySelector('[data-action="sign-in-google"]');
+    if(signIn) signIn.addEventListener('click', signInWithGoogle);
+    var signOut = document.querySelector('[data-action="sign-out"]');
+    if(signOut) signOut.addEventListener('click', signOutUser);
   }
 
   function bindDiagnosticEvents(){
