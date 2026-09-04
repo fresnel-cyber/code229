@@ -222,6 +222,31 @@
   .bn-item.active{color:var(--yellow);}
   .bn-item:active{background:rgba(var(--on-surface-rgb),0.06);}
 
+  /* ---------- Desktop : la barre basse devient une colonne de navigation
+     fixe à gauche ----------
+     Une barre d'onglets collée en bas d'un écran large a l'air d'une app
+     mobile étirée, pas d'une vraie app desktop — la convention sur grand
+     écran est une colonne de navigation latérale. Rien ne change en dessous
+     de 900px (zéro risque sur le mobile, qui reste l'usage réel de l'app) ;
+     `body.has-tabbar` gère déjà quand la nav doit être visible ou non
+     (masquée en quiz/examen/diagnostic) : cette règle en hérite gratuitement,
+     pas de logique JS supplémentaire à ajouter. */
+  @media (min-width: 900px){
+    body.has-tabbar .app-shell{ padding-bottom:0; margin-left:240px; max-width:720px; }
+    .bottom-nav{
+      left:0; right:auto; top:0; bottom:0; width:240px; max-width:240px; margin:0;
+      flex-direction:column; align-items:stretch; justify-content:flex-start;
+      gap:4px; padding:28px 12px;
+      border-top:none; border-right:1px solid rgba(var(--on-surface-rgb),0.08);
+    }
+    .bn-item{
+      flex:none; flex-direction:row; justify-content:flex-start; gap:12px;
+      padding:11px 14px; border-radius:var(--radius-md);
+    }
+    .bn-item .bn-label{font-size:13.5px;}
+    .bn-item.active{background:rgba(240,186,31,var(--tint-bg));}
+  }
+
   /* ---------- Zebra components (signature element) ---------- */
   .zebra-hero{
     height:34px; border-radius:8px; overflow:hidden; position:relative;
