@@ -558,6 +558,8 @@
     border-radius:100px; padding:7px 13px; cursor:pointer; transition:border-color var(--t) var(--ease), color var(--t) var(--ease);
   }
   .backup-btn:hover{border-color:rgba(var(--on-surface-rgb),0.24); color:var(--chalk);}
+  .backup-btn:disabled{cursor:default; opacity:0.7;}
+  .backup-btn:disabled:hover{border-color:rgba(var(--on-surface-rgb),0.08); color:var(--chalk-dim);}
 
   /* ---------- Mode audio ---------- */
   .tile-audio .tile-icon{background:rgba(44,170,107,var(--tint-solid)); color:var(--green);}
@@ -1454,8 +1456,51 @@
 
   function saveProgress(){
     try{ window.storage.set(STORAGE_KEY, JSON.stringify(progress)); }catch(e){}
+    saveStreakSnapshot();
     if(suppressNextCloudPush){ suppressNextCloudPush = false; return; }
     pushCloudProgress();
+  }
+
+  /* Dépose un petit instantané du streak dans le Cache Storage : le service
+     worker n'a pas accès à localStorage, mais peut lire un Cache — c'est ce
+     qui lui permet de décider s'il doit rappeler le streak en arrière-plan
+     (voir 'periodicsync' dans sw.js), sans aucun serveur. */
+  var STREAK_CACHE_NAME = 'code229-streak-v1';
+  var STREAK_CACHE_URL = '/__streak-state';
+  function saveStreakSnapshot(){
+    if(!('caches' in window)) return;
+    var data = {streak: progress.streak||0, lastActiveDate: progress.lastActiveDate||null};
+    caches.open(STREAK_CACHE_NAME).then(function(cache){
+      cache.put(STREAK_CACHE_URL, new Response(JSON.stringify(data), {headers:{'Content-Type':'application/json'}}));
+    }).catch(function(){});
+  }
+
+  /* Rappel de streak (opt-in) : demande la permission de notification sur un
+     vrai geste utilisateur (obligatoire pour les navigateurs), puis tente
+     d'enregistrer le Periodic Background Sync — best-effort seulement, le
+     navigateur décide seul de la fréquence réelle (voire ne le fait jamais
+     sur certains appareils/versions). On ne dépend jamais de ce mécanisme :
+     il ne fait qu'ajouter une chance de rappel en plus, jamais une promesse. */
+  function notificationsSupported(){ return ('Notification' in window) && ('serviceWorker' in navigator); }
+  function enableStreakReminders(){
+    if(!notificationsSupported()){ toast('Ton navigateur ne supporte pas les notifications.'); return; }
+    Notification.requestPermission().then(function(perm){
+      if(perm === 'granted'){
+        saveStreakSnapshot();
+        registerPeriodicStreakSync();
+        toast('Rappels de streak activés ✓');
+      } else if(perm === 'denied'){
+        toast('Notifications refusées.');
+      }
+      render();
+    });
+  }
+  function registerPeriodicStreakSync(){
+    if(!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.ready.then(function(reg){
+      if(!reg || !('periodicSync' in reg)) return; // non supporté (iOS, anciens Android…) : silence, c'est un bonus
+      reg.periodicSync.register('streak-check', {minInterval: 20 * 60 * 60 * 1000}).catch(function(){});
+    }).catch(function(){});
   }
 
   /* ---------------- Compte Google + synchronisation cloud (Firebase) ----------------
@@ -3272,6 +3317,14 @@
       '<button class="backup-btn" data-action="import-progress">'+icon('download',13)+'<span>Restaurer une sauvegarde</span></button>' +
       '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
     '</div>';
+    if(notificationsSupported()){
+      var np = Notification.permission;
+      html += '<div class="backup-row">';
+      if(np === 'granted') html += '<button class="backup-btn" disabled>'+icon('check',13)+'<span>Rappels de streak activés</span></button>';
+      else if(np === 'denied') html += '<button class="backup-btn" disabled>'+icon('flame',13)+'<span>Rappels bloqués (réglages du navigateur)</span></button>';
+      else html += '<button class="backup-btn" data-action="enable-streak-reminders">'+icon('flame',13)+'<span>Activer les rappels de streak</span></button>';
+      html += '</div>';
+    }
     html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — tu peux l\'envoyer ci-dessus (WhatsApp, e-mail…) pour la garder.<br><span class="footer-credit">Made by Anticip\'</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
     html += '</div>';
     return html;
@@ -4175,6 +4228,8 @@
     if(signIn) signIn.addEventListener('click', signInWithGoogle);
     var signOut = document.querySelector('[data-action="sign-out"]');
     if(signOut) signOut.addEventListener('click', signOutUser);
+    var streakReminders = document.querySelector('[data-action="enable-streak-reminders"]');
+    if(streakReminders) streakReminders.addEventListener('click', enableStreakReminders);
   }
 
   function bindDiagnosticEvents(){
@@ -4429,6 +4484,8 @@
     loadProgress().then(function(){
       state.view = progress.onboarded ? 'home' : 'diagnostic';
       render();
+      saveStreakSnapshot();
+      if(notificationsSupported() && Notification.permission === 'granted') registerPeriodicStreakSync();
 
       var saved = loadActiveSession();
       if(!saved) return;

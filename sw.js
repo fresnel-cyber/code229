@@ -67,3 +67,49 @@ self.addEventListener('fetch', function(event){
     );
   }
 });
+
+/*
+ * Rappel de streak en arrière-plan (best-effort, Chrome/Android
+ * uniquement) : quand le navigateur juge l'app assez engageante et
+ * qu'elle est installée, il déclenche périodiquement 'periodicsync' même
+ * app fermée. Le service worker n'a pas accès à localStorage, donc
+ * l'app principale dépose ici un petit instantané du streak (via Cache
+ * Storage, pas de backend) à chaque sauvegarde de progression — voir
+ * saveStreakSnapshot() dans index.html. Aucune garantie de fréquence
+ * (le navigateur décide), donc on reste silencieux si l'API n'existe
+ * pas ou que rien n'est dû : ce n'est qu'un bonus, jamais une dépendance.
+ */
+const STREAK_CACHE = 'code229-streak-v1';
+const STREAK_URL = '/__streak-state';
+
+function dayStr(d){ return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+
+function checkStreakAndNotify(){
+  return caches.open(STREAK_CACHE).then(function(cache){
+    return cache.match(STREAK_URL);
+  }).then(function(res){
+    return res ? res.json() : null;
+  }).then(function(data){
+    if(!data || !data.streak || data.lastActiveDate === dayStr(new Date())) return;
+    return self.registration.showNotification('CODE 229', {
+      body: 'Ton streak de ' + data.streak + ' jour' + (data.streak > 1 ? 's' : '') + ' est en jeu — une session rapide et c\'est sauvé.',
+      icon: '/img/icon-192.png',
+      badge: '/img/icon-192.png',
+      tag: 'streak-reminder'
+    });
+  }).catch(function(){});
+}
+
+self.addEventListener('periodicsync', function(event){
+  if(event.tag === 'streak-check') event.waitUntil(checkStreakAndNotify());
+});
+
+self.addEventListener('notificationclick', function(event){
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({type:'window'}).then(function(list){
+      for(var i=0;i<list.length;i++){ if('focus' in list[i]) return list[i].focus(); }
+      if(self.clients.openWindow) return self.clients.openWindow('/');
+    })
+  );
+});
