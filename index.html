@@ -582,6 +582,18 @@
   .account-info{min-width:0; display:flex; flex-direction:column; gap:1px;}
   .account-info b{font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   .account-info span{font-size:11.5px; color:var(--chalk-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  /* ---------- Bandeau "Installer l'app" (PWA, dismissible) ---------- */
+  .install-banner{
+    display:flex; align-items:center; gap:12px; margin:0 0 14px; padding:12px 12px 12px 14px;
+    border-radius:var(--radius-md); background:rgba(76,134,242,var(--tint-bg));
+    border:1px solid rgba(76,134,242,0.28);
+  }
+  .install-banner-icon{color:var(--blue); flex-shrink:0;}
+  .install-banner-text{flex:1; min-width:0;}
+  .install-banner-text b{display:block; font-family:var(--font-display); font-size:14px; color:var(--chalk);}
+  .install-banner-text span{display:block; font-size:11.5px; color:var(--chalk-dim); margin-top:1px; line-height:1.35;}
+  .install-banner .btn{flex-shrink:0; padding:8px 14px; font-size:13px;}
+  .install-banner-close{width:30px; height:30px; flex-shrink:0;}
   /* ---------- Streak : enjeu visible (loss aversion, à la Duolingo) ---------- */
   .streak-banner{
     display:flex; align-items:center; gap:12px; margin-top:10px; padding:12px 14px;
@@ -3033,6 +3045,15 @@
     var priority = priorityChapters(1)[0];
     var html = '<div class="view">';
 
+    if(canShowInstallBanner()){
+      html += '<div class="install-banner">' +
+        '<div class="install-banner-icon">'+icon('download',18)+'</div>' +
+        '<div class="install-banner-text"><b>Installe CODE 229</b><span>Accès direct depuis ton écran d\'accueil, comme une vraie appli.</span></div>' +
+        '<button class="btn btn-primary" data-action="install-app">Installer</button>' +
+        '<button class="icon-btn install-banner-close" data-action="dismiss-install-banner" aria-label="Ignorer">'+icon('close',14)+'</button>' +
+      '</div>';
+    }
+
     // Identité (fine, l'en-tête porte déjà la marque)
     html += '<div class="zebra-hero" aria-hidden="true">' + '<i></i>'.repeat(7) + '</div>';
 
@@ -4053,6 +4074,10 @@
 
   function bindHomeEvents(){
     bindCommonActions(document);
+    var install = document.querySelector('[data-action="install-app"]');
+    if(install) install.addEventListener('click', promptInstall);
+    var dismiss = document.querySelector('[data-action="dismiss-install-banner"]');
+    if(dismiss) dismiss.addEventListener('click', dismissInstallBanner);
   }
 
   /* Sauvegarde/export vivent dans l'onglet Progression (plus sur l'accueil). */
@@ -4357,6 +4382,47 @@
   } else {
     init();
   }
+
+  /* ---------------- Installer comme app ----------------
+     Chrome Android propose nativement d'installer une PWA, mais via un tout
+     petit repli caché dans la barre d'adresse que presque personne ne
+     remarque. On intercepte l'évènement pour proposer nous-mêmes un bandeau
+     clair sur l'accueil — plus agréable qu'un onglet de navigateur, surtout
+     pour la majorité des élèves sur Android. Ne s'affiche que si le
+     navigateur juge l'app installable, jamais sur iOS Safari (qui ne
+     déclenche pas cet évènement) ni une fois l'app déjà installée. */
+  var INSTALL_DISMISSED_KEY = 'code229_install_dismissed';
+  var deferredInstallPrompt = null;
+  function isStandaloneDisplay(){
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+  function installDismissed(){
+    try{ return localStorage.getItem(INSTALL_DISMISSED_KEY) === '1'; }catch(e){ return false; }
+  }
+  function canShowInstallBanner(){
+    return !!deferredInstallPrompt && !isStandaloneDisplay() && !installDismissed();
+  }
+  function dismissInstallBanner(){
+    try{ localStorage.setItem(INSTALL_DISMISSED_KEY, '1'); }catch(e){}
+    render();
+  }
+  function promptInstall(){
+    if(!deferredInstallPrompt) return;
+    var promptEvent = deferredInstallPrompt;
+    deferredInstallPrompt = null; // l'évènement natif ne peut servir qu'une fois
+    promptEvent.prompt();
+    promptEvent.userChoice.then(function(){ render(); });
+  }
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    if(state.view !== 'quiz') render(); // pas en pleine question, ça attendra la prochaine navigation
+  });
+  window.addEventListener('appinstalled', function(){
+    deferredInstallPrompt = null;
+    toast('CODE 229 installée sur ton téléphone ✓');
+    render();
+  });
 
 })();
 
