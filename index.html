@@ -1495,6 +1495,32 @@
       render();
     });
   }
+  /* Plutôt qu'un bouton discret que personne ne remarque, on relance
+     directement l'élève juste après une session réelle (hors diagnostic) —
+     le moment où il est le plus investi. Un vrai prompt système "à froid"
+     (sans explication) se fait très souvent refuser par réflexe, et un refus
+     est définitif (navigateur bloqué pour toujours, aucun moyen de
+     redemander) : on passe donc d'abord par notre propre modal qui explique
+     pourquoi, avant d'appeler l'API — ça maximise les acceptations réelles,
+     donc le nombre de rappels effectivement envoyés. Plafonné à 3 relances
+     (localStorage) pour ne pas tourner à l'acharnement si l'élève décline. */
+  var NOTIF_PROMPT_COUNT_KEY = 'code229_notif_prompt_count';
+  var NOTIF_PROMPT_MAX = 3;
+  function notifPromptCount(){
+    try{ return parseInt(localStorage.getItem(NOTIF_PROMPT_COUNT_KEY)||'0', 10) || 0; }catch(e){ return 0; }
+  }
+  function bumpNotifPromptCount(){
+    try{ localStorage.setItem(NOTIF_PROMPT_COUNT_KEY, String(notifPromptCount()+1)); }catch(e){}
+  }
+  function maybeAskNotificationPermission(){
+    if(!notificationsSupported() || Notification.permission !== 'default') return;
+    if(notifPromptCount() >= NOTIF_PROMPT_MAX) return;
+    bumpNotifPromptCount();
+    customConfirm(
+      'Active les rappels pour ne jamais perdre ton streak et garder le rythme jusqu\'à l\'examen.',
+      {okLabel:'Activer les rappels', cancelLabel:'Plus tard'}
+    ).then(function(ok){ if(ok) enableStreakReminders(); });
+  }
   function registerPeriodicStreakSync(){
     if(!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.ready.then(function(reg){
@@ -3317,13 +3343,8 @@
       '<button class="backup-btn" data-action="import-progress">'+icon('download',13)+'<span>Restaurer une sauvegarde</span></button>' +
       '<input type="file" id="import-file-input" accept="application/json" style="display:none">' +
     '</div>';
-    if(notificationsSupported()){
-      var np = Notification.permission;
-      html += '<div class="backup-row">';
-      if(np === 'granted') html += '<button class="backup-btn" disabled>'+icon('check',13)+'<span>Rappels de streak activés</span></button>';
-      else if(np === 'denied') html += '<button class="backup-btn" disabled>'+icon('flame',13)+'<span>Rappels bloqués (réglages du navigateur)</span></button>';
-      else html += '<button class="backup-btn" data-action="enable-streak-reminders">'+icon('flame',13)+'<span>Activer les rappels de streak</span></button>';
-      html += '</div>';
+    if(notificationsSupported() && Notification.permission === 'granted'){
+      html += '<div class="backup-row"><button class="backup-btn" disabled>'+icon('check',13)+'<span>Rappels de streak activés</span></button></div>';
     }
     html += '<div class="footer-note">Sources : Manuel du candidat à l\'examen du permis de conduire — DGTT Bénin (édition 2011).<br>Progression enregistrée automatiquement sur cet appareil — tu peux l\'envoyer ci-dessus (WhatsApp, e-mail…) pour la garder.<br><span class="footer-credit">Made by Anticip\'</span><br><a class="footer-contact" href="tel:0141827043">01 41 82 70 43</a></div>';
     html += '</div>';
@@ -4228,8 +4249,6 @@
     if(signIn) signIn.addEventListener('click', signInWithGoogle);
     var signOut = document.querySelector('[data-action="sign-out"]');
     if(signOut) signOut.addEventListener('click', signOutUser);
-    var streakReminders = document.querySelector('[data-action="enable-streak-reminders"]');
-    if(streakReminders) streakReminders.addEventListener('click', enableStreakReminders);
   }
 
   function bindDiagnosticEvents(){
@@ -4439,6 +4458,7 @@
 
   function bindResultsEvents(){
     bindCommonActions(document);
+    if(state.lastSession && state.lastSession.mode !== 'diag') maybeAskNotificationPermission();
     var reviewBtn = document.querySelector('[data-action="review-missed"]');
     if(reviewBtn) reviewBtn.addEventListener('click', function(){
       var s = state.lastSession;
