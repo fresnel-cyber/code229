@@ -321,6 +321,8 @@
   .hero-banner--results-good{background-image:url('img/results-good-hero.jpg');}
   .hero-banner--results-low{background-image:url('img/results-low-hero.jpg');}
   .hero-banner--progression{background-image:url('img/progression-hero.jpg');}
+  .hero-banner--train{background-image:url('img/train-hero.jpg'); background-position:center 30%;}
+  .hero-banner--fiches{background-image:url('img/fiches-hero.jpg'); background-position:center 25%;}
 
   .zebra-progress{
     height:16px; border-radius:100px; overflow:hidden; position:relative;
@@ -3374,6 +3376,7 @@
     var flaggedCnt = progress.flagged.length;
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Entraînement</h2></div></div>';
+    html += '<div class="hero-banner hero-banner--train" style="--fade-to:var(--asphalt-3);" aria-hidden="true"></div>';
     html += '<div class="tiles-grid">';
     html += '<button class="tile tile-signs tile-wide" data-action="start-signs">' +
       '<div style="display:flex;align-items:center;gap:12px;min-width:0;">' +
@@ -3887,6 +3890,7 @@
       '<div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Fiches de révision</h2></div>' +
       '<button class="icon-btn" style="margin-left:auto;" data-nav="audio" aria-label="Mode audio">'+icon('headphones',18)+'</button>' +
     '</div>';
+    html += '<div class="hero-banner hero-banner--fiches" style="--fade-to:var(--asphalt-3);" aria-hidden="true"></div>';
     html += '<p style="color:var(--chalk-dim);font-size:13px;margin-top:0;">L\'essentiel à retenir, chapitre par chapitre. Touche un chapitre pour l\'ouvrir.</p>';
     // Entrée à part, visuellement distincte : ce n'est pas une révision du
     // code, mais la démarche administrative réelle (inscription, permis
