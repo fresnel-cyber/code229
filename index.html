@@ -298,6 +298,23 @@
   .zebra-hero i:nth-child(7){animation-delay:.41s}
   @keyframes stripeIn{to{transform:scaleX(1);opacity:1;}}
 
+  /* ---------- Bannière photo de l'accueil ----------
+     Purement atmosphérique (aucun texte dessus, aucune action) : le
+     dégradé qui la fond dans var(--asphalt) en bas neutralise le fait que
+     la photo n'est pas une scène béninoise identifiable — elle ne doit
+     lire que comme "nuit, route, ambiance", jamais comme un lieu précis. */
+  .home-hero-banner{
+    height:120px; border-radius:var(--radius-lg); overflow:hidden; position:relative;
+    background-image:url('img/home-hero.avif'); background-size:cover; background-position:center 60%;
+  }
+  .home-hero-banner::after{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(20,22,26,0.15) 0%, var(--asphalt) 96%);
+  }
+  :root[data-theme="light"] .home-hero-banner::after{
+    background:linear-gradient(180deg, rgba(20,22,26,0.35) 0%, var(--asphalt) 90%);
+  }
+
   .zebra-progress{
     height:16px; border-radius:100px; overflow:hidden; position:relative;
     background:repeating-linear-gradient(90deg, var(--asphalt-4) 0 9px, var(--asphalt-2) 9px 18px);
@@ -591,6 +608,7 @@
 
   /* ---------- Home : où j'en suis ---------- */
   .view > .zebra-hero{margin:2px 0 16px;}
+  .view > .home-hero-banner{margin:2px 0 16px;}
   .status-card{
     display:flex; align-items:center; gap:16px;
     background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.07); border-radius:var(--radius-lg);
@@ -3280,8 +3298,8 @@
       '</div>';
     }
 
-    // Identité (fine, l'en-tête porte déjà la marque)
-    html += '<div class="zebra-hero" aria-hidden="true">' + '<i></i>'.repeat(7) + '</div>';
+    // Identité (photo d'ambiance, purement décorative)
+    html += '<div class="home-hero-banner" aria-hidden="true"></div>';
 
     // 1. OÙ J'EN SUIS — estimation de réussite (factuelle)
     html += '<div class="status-card">';
