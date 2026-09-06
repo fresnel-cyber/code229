@@ -298,22 +298,27 @@
   .zebra-hero i:nth-child(7){animation-delay:.41s}
   @keyframes stripeIn{to{transform:scaleX(1);opacity:1;}}
 
-  /* ---------- Bannière photo de l'accueil ----------
-     Purement atmosphérique (aucun texte dessus, aucune action) : le
-     dégradé qui la fond dans var(--asphalt) en bas neutralise le fait que
-     la photo n'est pas une scène béninoise identifiable — elle ne doit
-     lire que comme "nuit, route, ambiance", jamais comme un lieu précis. */
-  .home-hero-banner{
+  /* ---------- Bannières photo (accueil, diagnostic, résultats) ----------
+     Purement atmosphériques (aucun texte dessus, aucune action) : le
+     dégradé qui les fond dans le fond de leur carte en bas neutralise le
+     fait qu'aucune de ces photos n'est une scène béninoise identifiable —
+     elles ne doivent lire que comme "route, ambiance", jamais comme un
+     lieu précis. --fade-to règle la couleur vers laquelle chacune se fond
+     (le fond diffère entre l'accueil, la carte diagnostic et les résultats). */
+  .hero-banner{
     height:120px; border-radius:var(--radius-lg); overflow:hidden; position:relative;
-    background-image:url('img/home-hero.avif'); background-size:cover; background-position:center 60%;
+    background-size:cover; background-position:center 60%;
   }
-  .home-hero-banner::after{
+  .hero-banner::after{
     content:''; position:absolute; inset:0;
-    background:linear-gradient(180deg, rgba(20,22,26,0.15) 0%, var(--asphalt) 96%);
+    background:linear-gradient(180deg, rgba(20,22,26,0.15) 0%, var(--fade-to, var(--asphalt)) 96%);
   }
-  :root[data-theme="light"] .home-hero-banner::after{
-    background:linear-gradient(180deg, rgba(20,22,26,0.35) 0%, var(--asphalt) 90%);
+  :root[data-theme="light"] .hero-banner::after{
+    background:linear-gradient(180deg, rgba(20,22,26,0.35) 0%, var(--fade-to, var(--asphalt)) 90%);
   }
+  .hero-banner--home{background-image:url('img/home-hero.avif');}
+  .hero-banner--diag{background-image:url('img/diag-hero.jpg');}
+  .hero-banner--results-good{background-image:url('img/results-good-hero.jpg');}
 
   .zebra-progress{
     height:16px; border-radius:100px; overflow:hidden; position:relative;
@@ -608,7 +613,7 @@
 
   /* ---------- Home : où j'en suis ---------- */
   .view > .zebra-hero{margin:2px 0 16px;}
-  .view > .home-hero-banner{margin:2px 0 16px;}
+  .view > .hero-banner{margin:2px 0 16px;}
   .status-card{
     display:flex; align-items:center; gap:16px;
     background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.07); border-radius:var(--radius-lg);
@@ -3240,7 +3245,7 @@
   function renderDiagnostic(){
     var html = '<div class="view">';
     html += '<div class="diag-hero">';
-    html += '<div class="zebra-hero" aria-hidden="true">' + '<i></i>'.repeat(7) + '</div>';
+    html += '<div class="hero-banner hero-banner--diag" style="--fade-to:var(--asphalt-3);" aria-hidden="true"></div>';
     html += '<h1 class="diag-title">On commence par te situer</h1>';
     html += '<p class="diag-lead">12 questions rapides, tous thèmes confondus. Pas de note, pas de piège — juste de quoi savoir par où commencer et te bâtir un programme.</p>';
     html += '<div class="diag-points">';
@@ -3299,7 +3304,7 @@
     }
 
     // Identité (photo d'ambiance, purement décorative)
-    html += '<div class="home-hero-banner" aria-hidden="true"></div>';
+    html += '<div class="hero-banner hero-banner--home" aria-hidden="true"></div>';
 
     // 1. OÙ J'EN SUIS — estimation de réussite (factuelle)
     html += '<div class="status-card">';
@@ -3697,6 +3702,12 @@
 
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Fermer et revenir à l\'accueil">'+icon('close',16)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">'+(isDiag?'Ton point de départ':'Résultats')+'</h2></div></div>';
+
+    // Photo d'ambiance réservée aux bons scores pour l'instant — pas encore
+    // de photo validée (géographiquement cohérente) pour un score faible.
+    if(!isDiag && pct >= 75){
+      html += '<div class="hero-banner hero-banner--results-good" style="--fade-to:var(--asphalt-2);" aria-hidden="true"></div>';
+    }
 
     html += '<div class="result-hero">';
     html += '<div class="result-ring"><svg width="150" height="150" viewBox="0 0 150 150">' +
