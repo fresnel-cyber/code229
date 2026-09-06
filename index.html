@@ -319,6 +319,8 @@
   .hero-banner--home{background-image:url('img/home-hero.avif');}
   .hero-banner--diag{background-image:url('img/diag-hero.jpg');}
   .hero-banner--results-good{background-image:url('img/results-good-hero.jpg');}
+  .hero-banner--results-low{background-image:url('img/results-low-hero.jpg');}
+  .hero-banner--progression{background-image:url('img/progression-hero.jpg');}
 
   .zebra-progress{
     height:16px; border-radius:100px; overflow:hidden; position:relative;
@@ -3403,6 +3405,7 @@
     var om = overallMastery();
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Progression</h2></div></div>';
+    html += '<div class="hero-banner hero-banner--progression" style="--fade-to:var(--asphalt);" aria-hidden="true"></div>';
     // Compte optionnel : le mode local reste inchangé par défaut, la connexion
     // Google n'est qu'une option en plus pour sauvegarder dans le cloud et
     // retrouver sa progression sur un autre appareil.
@@ -3703,10 +3706,13 @@
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="home" aria-label="Fermer et revenir à l\'accueil">'+icon('close',16)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">'+(isDiag?'Ton point de départ':'Résultats')+'</h2></div></div>';
 
-    // Photo d'ambiance réservée aux bons scores pour l'instant — pas encore
-    // de photo validée (géographiquement cohérente) pour un score faible.
+    // Photo d'ambiance : valorisante sur un bon score, plus sobre (route qui
+    // continue) sur un score faible pour encourager sans avoir l'air de se
+    // moquer — rien sur les scores intermédiaires ni le diagnostic.
     if(!isDiag && pct >= 75){
       html += '<div class="hero-banner hero-banner--results-good" style="--fade-to:var(--asphalt-2);" aria-hidden="true"></div>';
+    } else if(!isDiag && pct < 55){
+      html += '<div class="hero-banner hero-banner--results-low" style="--fade-to:var(--asphalt-2);" aria-hidden="true"></div>';
     }
 
     html += '<div class="result-hero">';
