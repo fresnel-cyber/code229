@@ -1832,13 +1832,35 @@ var TIKTOK_PIXEL_ID = '';
   function isPremiumActive(){
     return !!(state.premium && state.premium.status === 'active' && state.premium.expiresAt > Date.now());
   }
+  /* Dernier statut Premium connu, mis en cache local. Un abonné ne doit
+     JAMAIS être renvoyé vers le paywall parce que Firestore est injoignable
+     (réseau coupé, roaming, serveur lent au démarrage). Le cache ne peut
+     jamais prolonger un abonnement au-delà de sa date d'expiration réelle,
+     et Firestore l'écrase dès qu'il répond : le serveur reste la vérité. */
+  var PREMIUM_CACHE_KEY = 'code229_premium_cache';
+  function cachePremium(uid, premium){
+    try{
+      if(premium) localStorage.setItem(PREMIUM_CACHE_KEY, JSON.stringify({uid:uid, status:premium.status, expiresAt:premium.expiresAt}));
+      else localStorage.removeItem(PREMIUM_CACHE_KEY);
+    }catch(e){}
+  }
+  function cachedPremiumFor(uid){
+    try{
+      var c = JSON.parse(localStorage.getItem(PREMIUM_CACHE_KEY) || 'null');
+      if(!c || c.uid !== uid) return null;
+      if(!(c.expiresAt > Date.now())) return null;
+      return {status:c.status, expiresAt:c.expiresAt};
+    }catch(e){ return null; }
+  }
   function watchPremiumStatus(user){
     if(premiumUnsub){ premiumUnsub(); premiumUnsub = null; }
     if(!user || !db){ state.premium = null; return; }
+    state.premium = cachedPremiumFor(user.uid); // optimiste le temps que Firestore réponde
     premiumUnsub = db.collection('subscriptions').doc(user.uid).onSnapshot(function(doc){
       state.premium = doc.exists ? {status:doc.data().status, expiresAt:doc.data().premium_expires_at||0} : null;
+      cachePremium(user.uid, state.premium);
       if(state.view !== 'quiz') render(); // évite de perturber une session en cours
-    }, function(){ /* hors-ligne : on garde le dernier statut connu */ });
+    }, function(){ /* injoignable : on garde le dernier statut connu du cache */ });
   }
 
   /* ---------------- Analytics funnel (TikTok Ads) ----------------
@@ -1907,9 +1929,25 @@ var TIKTOK_PIXEL_ID = '';
         // Ce compte Google est déjà lié à un autre UID (autre appareil) : on
         // bascule dessus pour retrouver l'abonnement/la progression de ce
         // compte plutôt que de rester sur l'UID anonyme local.
-        auth.signInWithCredential(err.credential).catch(function(){
-          toast('Connexion impossible : réessaie.');
-        });
+        var cred = err.credential;
+        var switchToExistingAccount = function(){
+          auth.signInWithCredential(cred).catch(function(){
+            toast('Connexion impossible : réessaie.');
+          });
+        };
+        // MAIS si un Premium a été payé sur l'UID anonyme local, basculer le
+        // rend inaccessible ici. On ne fait jamais ça en silence : c'est de
+        // l'argent déjà dépensé. (Le cache local est plus fiable que
+        // state.premium à cet instant précis du retour de redirection.)
+        var localUid = auth.currentUser && auth.currentUser.uid;
+        if(localUid && cachedPremiumFor(localUid)){
+          customConfirm(
+            'Ce compte Google est déjà utilisé sur un autre appareil. Si tu continues, l\'accès Premium acheté sur CET appareil ne sera plus accessible ici. Continuer quand même ?',
+            {okLabel:'Continuer', cancelLabel:'Annuler', danger:true}
+          ).then(function(ok){ if(ok) switchToExistingAccount(); });
+        } else {
+          switchToExistingAccount();
+        }
       } else {
         toast('Connexion impossible : réessaie.');
       }
