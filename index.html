@@ -196,6 +196,26 @@
   .topbar-stat:hover{border-color:rgba(var(--on-surface-rgb),0.2);}
   .topbar-stat b{color:var(--yellow);font-weight:700;}
 
+  /* ---------- Avatar de profil (topbar) ----------
+     Toujours visible, connecté ou non : l'anneau se remplit avec le taux de
+     réussite global (même donnée que la pastille trophée, en version
+     circulaire façon "anneau de progression") — confirmation visuelle
+     immédiate d'être connecté (photo/initiale réelle) et petite touche de
+     gamification empruntée à Duolingo, sans ajouter de nouvelle donnée. */
+  .topbar-avatar{
+    position:relative; width:38px; height:38px; flex-shrink:0; padding:0;
+    border:none; background:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .avatar-ring{position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg);}
+  .avatar-inner{
+    position:relative; width:30px; height:30px; border-radius:50%; overflow:hidden;
+    background:var(--yellow-on-ink); display:flex; align-items:center; justify-content:center;
+    color:var(--ink-on-accent);
+  }
+  .avatar-inner img{width:100%; height:100%; object-fit:cover; display:block;}
+  .avatar-initials{font-family:var(--font-display); font-weight:700; font-size:13px;}
+  .avatar-fallback{background:var(--asphalt-3); color:var(--chalk-faint);}
+
   /* ---------- Barre de navigation basse ----------
      Persistante sur les 4 destinations principales (Accueil / Entraînement /
      Fiches / Progression) et sur ce qui s'y range juste en dessous (chapitres,
@@ -3518,7 +3538,25 @@ var TIKTOK_PIXEL_ID = '';
   }
 
   function renderTopbar(){
+    syncUserFromAuth();
     var om = overallMastery();
+    var r = 17, circ = 2*Math.PI*r;
+    var dash = (om===null ? 0 : om/100*circ);
+    var avatarInner;
+    if(state.user && state.user.photoURL){
+      avatarInner = '<img src="'+escapeHtml(state.user.photoURL)+'" alt="" referrerpolicy="no-referrer">';
+    } else if(state.user && state.user.displayName){
+      avatarInner = '<span class="avatar-initials">'+escapeHtml(state.user.displayName.charAt(0).toUpperCase())+'</span>';
+    } else {
+      avatarInner = icon('help',15);
+    }
+    var avatarHtml = '<button class="topbar-avatar" data-nav="progression" aria-label="'+(state.user?'Ton profil':'Ton profil (non connecté)')+'">' +
+      '<svg class="avatar-ring" viewBox="0 0 40 40" aria-hidden="true">' +
+        '<circle cx="20" cy="20" r="'+r+'" fill="none" stroke="rgba(var(--on-surface-rgb),0.12)" stroke-width="3"/>' +
+        (dash>0 ? '<circle cx="20" cy="20" r="'+r+'" fill="none" stroke="var(--yellow)" stroke-width="3" stroke-linecap="round" stroke-dasharray="'+dash+' '+circ+'"/>' : '') +
+      '</svg>' +
+      '<div class="avatar-inner'+(state.user?'':' avatar-fallback')+'">'+avatarInner+'</div>' +
+    '</button>';
     return '' +
     '<div class="topbar"><div class="topbar-inner">' +
       '<button class="brand" data-nav="home">' +
@@ -3527,6 +3565,7 @@ var TIKTOK_PIXEL_ID = '';
       '</button>' +
       '<div style="display:flex;align-items:center;gap:8px;">' +
         '<button class="topbar-stat" data-nav="progression" aria-label="Taux de réussite'+(om===null?'':' : '+om+'%')+'">' + icon('trophy',15) + '<b>' + (om===null? '—' : om+'%') + '</b></button>' +
+        avatarHtml +
         '<button class="icon-btn" style="width:38px;height:38px;" data-action="open-display-settings" aria-label="Réglages d\'affichage">' + icon('contrast',16) + '</button>' +
       '</div>' +
     '</div></div>';
