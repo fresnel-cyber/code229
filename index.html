@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>CODE 229 — Prépare ton permis</title>
+<title>CODE 229 — Révise le code de la route (Bénin)</title>
 <script>
 /* Applique les préférences d'affichage (thème, taille de texte) avant même le
    parsing du CSS, pour éviter un flash de la mauvaise apparence au chargement. */
@@ -16,8 +16,9 @@
   }catch(e){}
 })();
 </script>
-<meta name="description" content="Révise le code de la route béninois avec les vrais panneaux et schémas du Manuel du candidat (DGTT) : répétition espacée, session du jour, examen blanc en conditions. Gratuit, sans compte.">
+<meta name="description" content="Révise le code de la route béninois avec les vrais panneaux et schémas du Manuel du candidat (DGTT) : diagnostic gratuit, répétition espacée, examen blanc en conditions.">
 <meta name="theme-color" content="#14161A">
+<link rel="canonical" href="https://code229.online/">
 <link rel="icon" href="img/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="img/favicon-16.png" sizes="16x16" type="image/png">
 <link rel="apple-touch-icon" href="img/icon-180.png">
@@ -27,17 +28,17 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CODE 229">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://code229.vercel.app/">
-<meta property="og:title" content="CODE 229 — Prépare ton permis">
-<meta property="og:description" content="Révise le code de la route béninois avec les vrais panneaux et schémas du Manuel du candidat (DGTT). Répétition espacée, session du jour, examen blanc.">
-<meta property="og:image" content="https://code229.vercel.app/img/og-image.jpg">
+<meta property="og:url" content="https://code229.online/">
+<meta property="og:title" content="CODE 229 — Révise le code de la route (Bénin)">
+<meta property="og:description" content="Révise le code de la route béninois avec les vrais panneaux et schémas du Manuel du candidat (DGTT). Diagnostic gratuit, répétition espacée, examen blanc.">
+<meta property="og:image" content="https://code229.online/img/og-image.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="fr_FR">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="CODE 229 — Prépare ton permis">
-<meta name="twitter:description" content="Révise le code de la route béninois avec les vrais panneaux du Manuel DGTT. Gratuit, sans compte.">
-<meta name="twitter:image" content="https://code229.vercel.app/img/og-image.jpg">
+<meta name="twitter:title" content="CODE 229 — Révise le code de la route (Bénin)">
+<meta name="twitter:description" content="Révise le code de la route béninois avec les vrais panneaux du Manuel DGTT. Diagnostic gratuit.">
+<meta name="twitter:image" content="https://code229.online/img/og-image.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -2854,6 +2855,42 @@ var TIKTOK_PIXEL_ID = '';
   };
   var timerInterval = null;
 
+  /* ---------------- Routing (SEO) ----------------
+     Seules les 4 destinations "publiques" (accueil, entraînement, fiches,
+     progression) ont une vraie URL — le reste (quiz, diagnostic, paywall,
+     résultats...) reste un état interne sans changer l'adresse, exactement
+     comme avant. Registre à garder en phase avec api/_lib/pages.js (titres
+     et descriptions dupliqués côté serveur pour que les robots qui
+     n'exécutent pas le JS voient déjà les bonnes balises). */
+  var VIEW_ROUTES = {home:'/', train:'/entrainement', fiches:'/fiches', progression:'/progression'};
+  var ROUTE_VIEWS = {'/':'home', '/entrainement':'train', '/fiches':'fiches', '/progression':'progression'};
+  var ROUTE_META = {
+    '/': {title:'CODE 229 — Révise le code de la route (Bénin)', description:"Révise le code de la route béninois avec les vrais panneaux et schémas du Manuel du candidat (DGTT) : diagnostic gratuit, répétition espacée, examen blanc en conditions."},
+    '/entrainement': {title:'Entraînement au code de la route | CODE 229', description:"Choisis ton mode de révision : session du jour, examen blanc chronométré, révision par chapitre ou reconnaissance des panneaux. Adapté à l'Afrique francophone."},
+    '/fiches': {title:'Fiches de révision du code de la route | CODE 229', description:"Toutes les fiches de révision du code de la route béninois : signalisation, priorités, vitesses, infractions... L'essentiel à connaître, chapitre par chapitre."},
+    '/progression': {title:'Suivi de progression | CODE 229', description:"Suis ta progression, tes badges et ton taux de réussite estimé pour l'examen du code de la route."}
+  };
+  function updateDocMeta(view){
+    var path = VIEW_ROUTES[view];
+    var meta = path && ROUTE_META[path];
+    if(!meta) return;
+    document.title = meta.title;
+    var m = document.querySelector('meta[name="description"]');
+    if(m) m.setAttribute('content', meta.description);
+  }
+  function syncUrlForView(view){
+    var path = VIEW_ROUTES[view];
+    if(!path) return; // vue interne (quiz, diagnostic, paywall...) : pas d'URL dédiée
+    if(location.pathname !== path) history.pushState({view:view}, '', path);
+    updateDocMeta(view);
+  }
+  window.addEventListener('popstate', function(){
+    var view = ROUTE_VIEWS[location.pathname] || 'home';
+    state.view = view;
+    render();
+    updateDocMeta(view);
+  });
+
   /* Diagnostic (12 questions) et Fiches restent gratuits ; toute vraie session
      de révision (session du jour, examen, erreurs, par chapitre, panneaux) et
      le mode audio nécessitent Premium. Centralisé ici plutôt que dans chaque
@@ -2872,6 +2909,7 @@ var TIKTOK_PIXEL_ID = '';
     if(view === 'quiz' && state.session) saveActiveSession();
     render();
     window.scrollTo(0,0);
+    syncUrlForView(view);
   }
 
   /* ---------------- Session building ---------------- */
@@ -4848,8 +4886,13 @@ var TIKTOK_PIXEL_ID = '';
 
   function init(){
     loadProgress().then(function(){
-      state.view = progress.onboarded ? 'home' : 'diagnostic';
+      // Un lien direct vers /entrainement, /fiches ou /progression (recherche
+      // Google, partage sur les réseaux...) doit montrer cette page tout de
+      // suite — pas le mur d'onboarding, même pour un tout premier visiteur.
+      var routedView = ROUTE_VIEWS[location.pathname];
+      state.view = routedView || (progress.onboarded ? 'home' : 'diagnostic');
       render();
+      syncUrlForView(state.view);
       trackEvent('app_opened');
       handlePaymentReturn();
       saveStreakSnapshot();
