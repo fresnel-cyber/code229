@@ -1136,15 +1136,26 @@ var TIKTOK_PIXEL_ID = '';
     "On ne baisse pas les bras : on baisse les erreurs.",
     "Révise bien, conduis mieux."
   ];
-  var phraseEl = document.getElementById('splash-phrase');
-  if(phraseEl) phraseEl.textContent = phrases[Math.floor(Math.random()*phrases.length)];
   var splash = document.getElementById('splash');
   function hideSplash(){
     if(!splash || splash.classList.contains('splash-hide')) return;
     splash.classList.add('splash-hide');
     setTimeout(function(){ if(splash && splash.parentNode) splash.parentNode.removeChild(splash); }, 400);
   }
+  /* Tout premier passage (aucune progression enregistrée) : on saute
+     complètement le splash. Un visiteur qui arrive d'une pub doit atteindre
+     sa première question sans le moindre écran intercalaire — les phrases
+     de défi n'ont de valeur que pour quelqu'un qui REVIENT, pas pour
+     quelqu'un qui découvre et qu'on fait patienter. */
+  var isFirstEverVisit = false;
+  try{ isFirstEverVisit = !localStorage.getItem('code229_progress_v2'); }catch(e){}
+  if(splash && isFirstEverVisit){
+    splash.parentNode.removeChild(splash);
+    splash = null;
+  }
   if(splash){
+    var phraseEl = document.getElementById('splash-phrase');
+    if(phraseEl) phraseEl.textContent = phrases[Math.floor(Math.random()*phrases.length)];
     splash.addEventListener('click', hideSplash);
     setTimeout(hideSplash, 2800);
   }
