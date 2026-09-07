@@ -629,6 +629,18 @@
   .status-label{font-family:var(--font-mono); font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--chalk-faint);}
   .status-phrase{font-size:13.5px; color:var(--chalk-dim); line-height:1.4; margin-top:3px;}
 
+  /* ---------- Statut Premium ---------- */
+  .premium-card{
+    display:block; width:100%; text-align:left; border-radius:var(--radius-lg); padding:14px 16px;
+    margin-bottom:14px; border:1px solid; cursor:default;
+  }
+  .premium-active{background:rgba(44,170,107,var(--tint-bg)); border-color:rgba(44,170,107,0.3);}
+  .premium-upsell{background:rgba(240,186,31,var(--tint-bg)); border-color:rgba(240,186,31,0.3); cursor:pointer;}
+  .premium-badge{display:flex; align-items:center; gap:7px; font-family:var(--font-display); font-size:13.5px; font-weight:700;}
+  .premium-active .premium-badge{color:var(--green);}
+  .premium-upsell .premium-badge{color:var(--yellow);}
+  .premium-note{margin:5px 0 0; font-size:12.5px; color:var(--chalk-dim); line-height:1.4;}
+
   /* ---------- Compte (connexion Google optionnelle) ---------- */
   .account-card{
     background:var(--asphalt-2); border:1px solid rgba(var(--on-surface-rgb),0.07); border-radius:var(--radius-lg);
@@ -821,6 +833,20 @@
   .diag-skip{display:block; width:100%; margin-top:12px; background:none; border:none; color:var(--chalk-faint); font-family:var(--font-body); font-size:13px; cursor:pointer; padding:10px;}
   .diag-skip:hover{color:var(--chalk-dim);}
 
+  /* ---------- Paywall Premium ---------- */
+  .paywall-card{
+    margin-top:8px; padding:20px; border-radius:var(--radius-lg);
+    background:var(--asphalt); border:1px solid rgba(240,186,31,0.3);
+  }
+  .paywall-price{display:flex; align-items:baseline; gap:6px; font-family:var(--font-display);}
+  .paywall-price b{font-size:34px; font-weight:700; color:var(--yellow);}
+  .paywall-price span{font-size:15px; color:var(--chalk-dim); font-weight:600;}
+  .paywall-duration{font-size:13px; color:var(--chalk-dim); margin:2px 0 16px;}
+  .paywall-features{list-style:none; margin:0 0 20px; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .paywall-features li{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--chalk);}
+  .paywall-features li svg{color:var(--green); flex-shrink:0;}
+  .paywall-note{margin:12px 0 0; font-size:11.5px; color:var(--chalk-faint); text-align:center;}
+
   /* ---------- Toast ---------- */
   .toast{
     position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px);
@@ -958,6 +984,16 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script>
+// Pixel TikTok Ads — snippet officiel standard. Ne se charge que si un vrai
+// ID est renseigné ci-dessous (TikTok Ads Manager → Assets → Events), pour
+// ne rien casser tant qu'il n'a pas été créé.
+var TIKTOK_PIXEL_ID = '';
+!function (w, d, t) {
+  w.TiktokAnalyticsObject=t;var ttq=w[t]=w[t]||[];ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie","holdConsent","revokeConsent","grantConsent"],ttq.setAndDefer=function(t,e){t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}};for(var i=0;i<ttq.methods.length;i++)ttq.setAndDefer(ttq,ttq.methods[i]);ttq.instance=function(t){for(var e=ttq._i[t]||[],n=0;n<e.methods.length;n++)ttq.setAndDefer(e,e.methods[n]);return e},ttq.load=function(e,n){var i="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=i,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};var a=document.createElement("script");a.type="text/javascript",a.async=!0,a.src=i+"?sdkid="+e+"&lib="+t;var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(a,s)};
+  if(TIKTOK_PIXEL_ID){ ttq.load(TIKTOK_PIXEL_ID); ttq.page(); }
+}(window, document, 'ttq');
+</script>
 </head>
 <body>
 <div id="splash" class="splash-screen" aria-hidden="true">
@@ -1667,17 +1703,75 @@
   // (sinon un aller-retour inutile à chaque connexion qui adopte le cloud).
   var suppressNextCloudPush = false;
 
+  /* Chaque visiteur (même jamais connecté) a un UID Firebase stable via
+     l'auth anonyme (voir plus bas) — signInWithGoogle() doit donc LIER ce
+     compte Google à l'UID anonyme existant (linkWithRedirect) plutôt que de
+     créer un nouvel UID, sinon l'abonnement Premium déjà attaché à l'UID
+     anonyme serait abandonné. */
   function signInWithGoogle(){
     if(!CLOUD_ENABLED){ toast('Connexion indisponible hors-ligne.'); return; }
-    auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+    var provider = new firebase.auth.GoogleAuthProvider();
+    if(auth.currentUser && auth.currentUser.isAnonymous){
+      auth.currentUser.linkWithRedirect(provider);
+    } else {
+      auth.signInWithRedirect(provider);
+    }
   }
   function signOutUser(){
     if(!CLOUD_ENABLED || !auth) return;
-    auth.signOut().then(function(){
-      state.user = null;
-      render();
-      toast('Déconnecté.');
-    });
+    function doSignOut(){
+      auth.signOut().then(function(){
+        state.user = null;
+        render();
+        toast('Déconnecté.');
+      });
+    }
+    // Se déconnecter abandonne l'UID courant (un nouvel UID anonyme, sans
+    // abonnement, sera créé juste après) : si Premium est actif, on prévient
+    // que seule une reconnexion avec CE MÊME compte Google le retrouvera.
+    if(isPremiumActive()){
+      customConfirm(
+        'Te déconnecter ? Tu retrouveras ton accès Premium en te reconnectant avec ce même compte Google.',
+        {okLabel:'Se déconnecter', cancelLabel:'Annuler'}
+      ).then(function(ok){ if(ok) doSignOut(); });
+    } else {
+      doSignOut();
+    }
+  }
+
+  /* ---------------- Statut Premium ----------------
+     Source de vérité = Firestore (subscriptions/{uid}), écrit uniquement par
+     le webhook serveur (api/fedapay-webhook.js). Le client se contente
+     d'écouter en temps réel — jamais d'écriture directe, jamais de confiance
+     dans un simple flag local. `isPremiumActive()` recalcule toujours sur la
+     date d'expiration réelle plutôt que sur le seul champ `status`. */
+  var premiumUnsub = null;
+  function isPremiumActive(){
+    return !!(state.premium && state.premium.status === 'active' && state.premium.expiresAt > Date.now());
+  }
+  function watchPremiumStatus(user){
+    if(premiumUnsub){ premiumUnsub(); premiumUnsub = null; }
+    if(!user || !db){ state.premium = null; return; }
+    premiumUnsub = db.collection('subscriptions').doc(user.uid).onSnapshot(function(doc){
+      state.premium = doc.exists ? {status:doc.data().status, expiresAt:doc.data().premium_expires_at||0} : null;
+      if(state.view !== 'quiz') render(); // évite de perturber une session en cours
+    }, function(){ /* hors-ligne : on garde le dernier statut connu */ });
+  }
+
+  /* ---------------- Analytics funnel (TikTok Ads) ----------------
+     MVP volontairement minimal : un seul point d'appel, deux destinations.
+     Le Pixel TikTok (window.ttq, chargé dans <head>) sert à l'optimisation
+     des Ads ; la copie dans `analytics_events` (Firestore, déjà chargé) sert
+     de source de vérité indépendante pour compter le funnel nous-mêmes,
+     sans dépendre du tableau de bord TikTok. Aucune des deux ne doit jamais
+     faire échouer le reste de l'app si elle est indisponible. */
+  function trackEvent(name, params){
+    try{ if(window.ttq) ttq.track(name, params || {}); }catch(e){}
+    try{
+      if(CLOUD_ENABLED && db && auth && auth.currentUser){
+        db.collection('analytics_events').add({uid:auth.currentUser.uid, event:name, ts:Date.now()}).catch(function(){});
+      }
+    }catch(e){}
   }
 
   /* Écriture cloud "routine" (à chaque mutation de progress via saveProgress),
@@ -1725,15 +1819,34 @@
   }
 
   if(CLOUD_ENABLED){
-    auth.getRedirectResult().catch(function(){ toast('Connexion impossible : réessaie.'); });
+    auth.getRedirectResult().catch(function(err){
+      if(err && err.code === 'auth/credential-already-in-use' && err.credential){
+        // Ce compte Google est déjà lié à un autre UID (autre appareil) : on
+        // bascule dessus pour retrouver l'abonnement/la progression de ce
+        // compte plutôt que de rester sur l'UID anonyme local.
+        auth.signInWithCredential(err.credential).catch(function(){
+          toast('Connexion impossible : réessaie.');
+        });
+      } else {
+        toast('Connexion impossible : réessaie.');
+      }
+    });
     auth.onAuthStateChanged(function(user){
       var wasSignedIn = !!state.user;
-      if(user){
+      if(user && !user.isAnonymous){
         state.user = {uid:user.uid, email:user.email, displayName:user.displayName, photoURL:user.photoURL};
         if(!wasSignedIn) reconcileCloudProgress(state.user);
       } else {
         state.user = null;
       }
+      if(!user){
+        // Aucune session (première visite, ou déconnexion) : un UID anonyme
+        // silencieux donne immédiatement à l'app de quoi attacher un
+        // abonnement, sans aucune friction ni UI de compte.
+        auth.signInAnonymously().catch(function(){});
+        return; // onAuthStateChanged se redéclenchera une fois l'UID créé
+      }
+      watchPremiumStatus(user);
       if(state.view === 'progression') render();
     });
   }
@@ -2736,13 +2849,24 @@
     ficheChapter: null, // null = liste des chapitres ; sinon id du chapitre affiché en plein écran
     panfrOpen: false,   // bibliothèque élargie « aller plus loin » repliée par défaut
     panfrCat: null,      // filtre catégorie de la bibliothèque élargie (null = toutes)
-    user: null           // {uid,email,displayName,photoURL} si connecté avec Google, sinon null
+    user: null,          // {uid,email,displayName,photoURL} si connecté avec Google, sinon null
+    premium: null        // {status,expiresAt} reflet temps réel de subscriptions/{uid}, sinon null
   };
   var timerInterval = null;
 
+  /* Diagnostic (12 questions) et Fiches restent gratuits ; toute vraie session
+     de révision (session du jour, examen, erreurs, par chapitre, panneaux) et
+     le mode audio nécessitent Premium. Centralisé ici plutôt que dans chaque
+     fonction start*() : tout navigue déjà via goto(), un seul point de garde
+     couvre tous les appelants d'un coup. */
   function goto(view, extra){
     stopTimer();
     if(state.view === 'audio' && view !== 'audio'){ apStop(); }
+    var needsPremium = (view === 'quiz' && state.session && state.session.mode !== 'diag') || view === 'audio';
+    if(needsPremium && !isPremiumActive()){
+      trackEvent('paywall_viewed');
+      view = 'paywall';
+    }
     state.view = view;
     if(extra) Object.assign(state, extra);
     if(view === 'quiz' && state.session) saveActiveSession();
@@ -3036,7 +3160,7 @@
       progress.examHistory.push({date:new Date().toISOString(), score:correctCount, total:total, percent:percent});
       if(progress.examHistory.length > 20) progress.examHistory.shift();
     }
-    if(s.mode === 'diag'){ progress.onboarded = true; }
+    if(s.mode === 'diag'){ progress.onboarded = true; trackEvent('diagnostic_completed', {percent:percent}); }
     // journal fin pour l'estimation de réussite (on ignore la liste des marquées)
     if(base > 0 && s.mode !== 'flagged'){
       progress.sessionLog.push({date:new Date().toISOString(), mode:s.mode, correct:correctCount, total:base, percent:percent});
@@ -3212,6 +3336,7 @@
       case 'fiches': html += renderFiches(); break;
       case 'audio': html += renderAudio(); break;
       case 'badges': html += renderBadges(); break;
+      case 'paywall': html += renderPaywall(); break;
       case 'empty': html += renderEmptyView(); break;
       default: html += renderHome();
     }
@@ -3230,6 +3355,7 @@
     if(state.view === 'train'){ bindCommonActions(document); }
     if(state.view === 'progression'){ bindProgressionEvents(); }
     if(state.view === 'diagnostic'){ bindDiagnosticEvents(); }
+    if(state.view === 'paywall'){ bindPaywallEvents(); }
     if(state.view === 'empty'){ bindCommonActions(document); }
   }
 
@@ -3261,6 +3387,69 @@
     html += '<button class="diag-skip" data-action="skip-diag">Passer, aller au menu</button>';
     html += '</div></div>';
     return html;
+  }
+
+  /* Paywall : jamais montré avant que l'élève ait vu son diagnostic et ses
+     faiblesses (voir la garde dans goto()). Message orienté valeur plutôt
+     qu'un simple mur — on rappelle ce qu'il vient de découvrir avant de
+     proposer l'offre. "Plus tard" reste possible : Fiches et le diagnostic
+     restent gratuits, on ne piège personne. */
+  function renderPaywall(){
+    var html = '<div class="view">';
+    html += '<div class="diag-hero">';
+    html += '<h1 class="diag-title">Tu sais maintenant où sont tes lacunes.</h1>';
+    html += '<p class="diag-lead">Continue ton apprentissage personnalisé et entraîne-toi jusqu\'à être prêt pour l\'examen.</p>';
+    html += '<div class="paywall-card">';
+    html += '<div class="paywall-price"><b>1 000</b><span>FCFA</span></div>';
+    html += '<div class="paywall-duration">30 jours d\'accès complet à CODE 229 Premium</div>';
+    html += '<ul class="paywall-features">';
+    ['Apprentissage personnalisé','Toutes les questions','Révisions adaptées à tes faiblesses',
+     'Répétition espacée','Examens blancs','Suivi complet de ta progression'].forEach(function(f){
+      html += '<li>'+icon('check',14)+'<span>'+f+'</span></li>';
+    });
+    html += '</ul>';
+    html += '<button class="btn btn-primary btn-block" data-action="start-checkout">'+icon('bolt',17)+' Débloquer pendant 30 jours</button>';
+    html += '<p class="paywall-note">Paiement sécurisé via FedaPay — Mobile Money, carte bancaire…</p>';
+    html += '</div>';
+    html += '<button class="diag-skip" data-nav="home">Plus tard, retour à l\'accueil</button>';
+    html += '</div></div>';
+    return html;
+  }
+
+  var PAYWALL_CTA_DEFAULT = 'Débloquer pendant 30 jours';
+  function bindPaywallEvents(){
+    var cta = document.querySelector('[data-action="start-checkout"]');
+    if(cta) cta.addEventListener('click', startCheckout);
+  }
+
+  /* Ne fait jamais confiance à cet appel pour activer Premium : il ne fait
+     que démarrer le paiement. C'est le webhook serveur (api/fedapay-webhook.js),
+     après re-vérification auprès de FedaPay, qui écrit dans Firestore — et
+     c'est l'écoute temps réel (watchPremiumStatus) qui débloquera l'UI. */
+  function startCheckout(){
+    var btn = document.querySelector('[data-action="start-checkout"]');
+    if(!CLOUD_ENABLED || !auth || !auth.currentUser){
+      toast('Connexion indisponible, réessaie dans un instant.');
+      return;
+    }
+    if(btn){ btn.disabled = true; btn.innerHTML = icon('clock',17)+' Redirection…'; }
+    trackEvent('checkout_started');
+    auth.currentUser.getIdToken().then(function(idToken){
+      return fetch('/api/create-payment', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', 'Authorization':'Bearer '+idToken}
+      });
+    }).then(function(res){ return res.json(); }).then(function(data){
+      if(data && data.checkoutUrl){
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast((data && data.error) || 'Impossible de démarrer le paiement.');
+        if(btn){ btn.disabled = false; btn.innerHTML = icon('bolt',17)+' '+PAYWALL_CTA_DEFAULT; }
+      }
+    }).catch(function(){
+      toast('Impossible de démarrer le paiement, vérifie ta connexion.');
+      if(btn){ btn.disabled = false; btn.innerHTML = icon('bolt',17)+' '+PAYWALL_CTA_DEFAULT; }
+    });
   }
 
   function renderTopbar(){
@@ -3409,6 +3598,18 @@
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Progression</h2></div></div>';
     html += '<div class="hero-banner hero-banner--progression" style="--fade-to:var(--asphalt);" aria-hidden="true"></div>';
+    if(isPremiumActive()){
+      var expiryStr = new Date(state.premium.expiresAt).toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
+      html += '<div class="premium-card premium-active">' +
+        '<div class="premium-badge">'+icon('check',13)+'<span>Premium actif</span></div>' +
+        '<p class="premium-note">Expire le '+expiryStr+'.</p>' +
+      '</div>';
+    } else {
+      html += '<button class="premium-card premium-upsell" data-nav="paywall">' +
+        '<div class="premium-badge">'+icon('bolt',13)+'<span>Passer Premium</span></div>' +
+        '<p class="premium-note">Apprentissage personnalisé, examen blanc et plus — 1 000 FCFA / 30 jours.</p>' +
+      '</button>';
+    }
     // Compte optionnel : le mode local reste inchangé par défaut, la connexion
     // Google n'est qu'une option en plus pour sauvegarder dans le cloud et
     // retrouver sa progression sur un autre appareil.
@@ -4373,6 +4574,7 @@
   function bindDiagnosticEvents(){
     var start = document.querySelector('[data-action="start-diag"]');
     if(start) start.addEventListener('click', function(){
+      trackEvent('diagnostic_started');
       state.session = buildSession('diag');
       goto('quiz');
     });
@@ -4619,10 +4821,37 @@
     practice:'entraînement'
   };
 
+  /* Retour depuis le checkout FedaPay (callback_url=?payment=return) : on ne
+     fait JAMAIS confiance à cette redirection pour activer Premium — on se
+     contente d'attendre que l'écoute temps réel (watchPremiumStatus) reflète
+     ce que le webhook serveur aura écrit, avec un message de repli si ça
+     prend plus de quelques secondes (retard réseau, webhook pas encore reçu). */
+  function handlePaymentReturn(){
+    var params = new URLSearchParams(location.search);
+    if(params.get('payment') !== 'return') return;
+    history.replaceState(null, '', location.pathname);
+    toast('Vérification du paiement…');
+    var checks = 0;
+    var iv = setInterval(function(){
+      checks++;
+      if(isPremiumActive()){
+        clearInterval(iv);
+        trackEvent('payment_success');
+        toast('Paiement confirmé — Premium activé ✓');
+        render();
+      } else if(checks >= 6){
+        clearInterval(iv);
+        toast('Vérification en cours — ça peut prendre quelques secondes, reviens sur cette page dans un instant.');
+      }
+    }, 1000);
+  }
+
   function init(){
     loadProgress().then(function(){
       state.view = progress.onboarded ? 'home' : 'diagnostic';
       render();
+      trackEvent('app_opened');
+      handlePaymentReturn();
       saveStreakSnapshot();
       if(notificationsSupported() && Notification.permission === 'granted') registerPeriodicStreakSync();
 

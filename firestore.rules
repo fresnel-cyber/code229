@@ -1,0 +1,39 @@
+// Règles Firestore du projet code229-978a6.
+// Versionnées ici pour référence/historique — à coller manuellement dans
+// Firebase Console → Firestore Database → Règles (pas de déploiement auto
+// depuis ce repo). Les règles pour `users/{uid}` (progression) existaient
+// déjà avant l'ajout du paiement ; seules `subscriptions`, `payments` et
+// `analytics_events` sont nouvelles.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Progression (déjà en place) : chacun ne lit/écrit que son propre doc.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Statut Premium : lecture seule pour le propriétaire, écriture
+    // réservée au serveur (Admin SDK, qui ignore les règles de sécurité).
+    // Un client ne peut donc jamais s'auto-déclarer Premium.
+    match /subscriptions/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Historique de paiement : lecture seule de ses propres transactions,
+    // jamais d'écriture côté client (créées uniquement par /api/create-payment).
+    match /payments/{paymentId} {
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Funnel marketing : le client peut UNIQUEMENT créer ses propres
+    // événements (jamais les relire, modifier ou supprimer) — suffisant pour
+    // compter le funnel sans exposer les données d'autres utilisateurs.
+    match /analytics_events/{eventId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow read, update, delete: if false;
+    }
+  }
+}

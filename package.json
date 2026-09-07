@@ -1,0 +1,10 @@
+{
+  "name": "code229",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CODE 229 — API serverless (paiement FedaPay, webhook, activation Premium).",
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "fedapay": "^1.2.5"
+  }
+}
