@@ -11,9 +11,6 @@ const PREMIUM_AMOUNT = 1000;
 const PREMIUM_CURRENCY = 'XOF';
 const PREMIUM_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
-// Vercel doit nous laisser le corps BRUT : la signature porte sur les octets
-// exacts envoyés par FedaPay, pas sur un JSON.parse puis re-sérialisé.
-module.exports.config = { api: { bodyParser: false } };
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -24,7 +21,7 @@ function readRawBody(req) {
   });
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).end();
     return;
@@ -120,3 +117,12 @@ module.exports = async function handler(req, res) {
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 };
+
+/* Vercel doit nous laisser le corps BRUT : la signature porte sur les octets
+   exacts envoyés par FedaPay, pas sur un JSON.parse puis re-sérialisé.
+   ATTENTION à l'ordre : `module.exports = handler` remplace entièrement
+   l'objet exports, donc la config doit être attachée APRÈS, sinon elle est
+   silencieusement perdue — et sans corps brut, aucune signature ne peut
+   être validée, donc aucun paiement ne serait jamais activé. */
+module.exports = handler;
+module.exports.config = { api: { bodyParser: false } };
