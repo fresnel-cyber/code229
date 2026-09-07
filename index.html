@@ -3658,7 +3658,25 @@ var TIKTOK_PIXEL_ID = '';
   /* Onglet "Progression" : tout ce qui regarde en arrière (maîtrise par
      chapitre, badges, sauvegarde) — consulté par choix, jamais imposé au
      premier écran. */
+  /* Resynchronise state.user sur l'état réel de Firebase juste avant
+     d'afficher la carte compte — vu sur iPhone/Safari : après une connexion
+     Google via linkWithRedirect, onAuthStateChanged peut mettre à jour
+     state.user avec un léger décalage par rapport à auth.currentUser (déjà
+     à jour, lui, de façon synchrone). Sans ça, revenir sur Progression
+     pouvait réafficher "Se connecter" alors que la connexion avait bien
+     réussi. */
+  function syncUserFromAuth(){
+    if(!CLOUD_ENABLED || !auth) return;
+    var u = auth.currentUser;
+    if(u && !u.isAnonymous){
+      state.user = {uid:u.uid, email:u.email, displayName:u.displayName, photoURL:u.photoURL};
+    } else {
+      state.user = null;
+    }
+  }
+
   function renderProgression(){
+    syncUserFromAuth();
     var om = overallMastery();
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">Progression</h2></div></div>';
