@@ -1712,11 +1712,19 @@ var TIKTOK_PIXEL_ID = '';
   function signInWithGoogle(){
     if(!CLOUD_ENABLED){ toast('Connexion indisponible hors-ligne.'); return; }
     var provider = new firebase.auth.GoogleAuthProvider();
-    if(auth.currentUser && auth.currentUser.isAnonymous){
-      auth.currentUser.linkWithRedirect(provider);
-    } else {
-      auth.signInWithRedirect(provider);
-    }
+    var attempt = (auth.currentUser && auth.currentUser.isAnonymous)
+      ? auth.currentUser.linkWithRedirect(provider)
+      : auth.signInWithRedirect(provider);
+    // Sans ce .catch(), un échec (domaine non autorisé, réseau...) ne
+    // provoquait littéralement AUCUN signe visible — c'est justement ce
+    // qu'un testeur a rencontré sur iPhone.
+    attempt.catch(function(err){
+      if(err && err.code === 'auth/unauthorized-domain'){
+        toast('Ce domaine n\'est pas encore autorisé pour la connexion Google.');
+      } else {
+        toast('Connexion impossible : réessaie.');
+      }
+    });
   }
   function signOutUser(){
     if(!CLOUD_ENABLED || !auth) return;
