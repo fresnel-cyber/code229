@@ -2878,14 +2878,32 @@ var TIKTOK_PIXEL_ID = '';
     var m = document.querySelector('meta[name="description"]');
     if(m) m.setAttribute('content', meta.description);
   }
-  function syncUrlForView(view){
-    var path = VIEW_ROUTES[view];
-    if(!path) return; // vue interne (quiz, diagnostic, paywall...) : pas d'URL dédiée
-    if(location.pathname !== path) history.pushState({view:view}, '', path);
+  /* Chaque appel à goto() empile une entrée d'historique — pas seulement les
+     4 pages publiques, TOUTE navigation (résultats, quiz de révision des
+     erreurs, paywall...). Sans ça, le bouton retour du téléphone n'a aucune
+     entrée à dépiler pour ces écrans et fait n'importe quoi (retour égaré
+     hors de l'app, ou ré-atterrissage brutal sur une autre page) — c'est ce
+     qui causait la perte des résultats signalée par un testeur. Les vues
+     "publiques" gardent leur URL dédiée ; les vues internes empilent une
+     entrée sur l'URL courante, invisible mais bien réelle pour l'historique. */
+  function syncUrlForView(view, replace){
+    var path = VIEW_ROUTES[view] || location.pathname;
+    var entryState = {appView: view};
+    // Un retour vers "results" doit réafficher EXACTEMENT la session qui
+    // était affichée à ce moment-là, même si state.lastSession a depuis été
+    // écrasé par une session de révision des erreurs terminée entre-temps.
+    if(view === 'results') entryState.lastSession = state.lastSession;
+    history[replace ? 'replaceState' : 'pushState'](entryState, '', path);
     updateDocMeta(view);
   }
-  window.addEventListener('popstate', function(){
-    var view = ROUTE_VIEWS[location.pathname] || 'home';
+  window.addEventListener('popstate', function(e){
+    var view = (e.state && e.state.appView) || ROUTE_VIEWS[location.pathname] || 'home';
+    if(e.state && view === 'results' && e.state.lastSession) state.lastSession = e.state.lastSession;
+    // Une session de quiz terminée efface state.session (voir finishSession) :
+    // remonter jusqu'à cette entrée d'historique n'a donc plus rien à
+    // afficher (renderQuiz() est une coquille vide sans session active).
+    // Plutôt qu'un écran blanc, direction l'accueil.
+    if(view === 'quiz' && !state.session) view = 'home';
     state.view = view;
     render();
     updateDocMeta(view);
@@ -4889,10 +4907,13 @@ var TIKTOK_PIXEL_ID = '';
       // Un lien direct vers /entrainement, /fiches ou /progression (recherche
       // Google, partage sur les réseaux...) doit montrer cette page tout de
       // suite — pas le mur d'onboarding, même pour un tout premier visiteur.
-      var routedView = ROUTE_VIEWS[location.pathname];
+      // "/" doit continuer à respecter la logique d'onboarding normale — le
+      // contournement ne vaut que pour un lien direct vers une sous-page
+      // précise (/fiches...), jamais pour la racine du site.
+      var routedView = location.pathname === '/' ? null : ROUTE_VIEWS[location.pathname];
       state.view = routedView || (progress.onboarded ? 'home' : 'diagnostic');
       render();
-      syncUrlForView(state.view);
+      syncUrlForView(state.view, true); // replaceState : premier écran, rien à empiler par-dessus
       trackEvent('app_opened');
       handlePaymentReturn();
       saveStreakSnapshot();
