@@ -3919,7 +3919,9 @@ var TIKTOK_PIXEL_ID = '';
     var u = auth.currentUser;
     if(u && !u.isAnonymous){
       state.user = {uid:u.uid, email:u.email, displayName:u.displayName, photoURL:u.photoURL};
+      console.log('[sync] state.user synced from auth.currentUser:', state.user.uid);
     } else {
+      if(state.user) console.log('[sync] clearing state.user (auth.currentUser is' + (u ? ' anonymous' : ' null') + ')');
       state.user = null;
     }
   }
