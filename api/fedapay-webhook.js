@@ -5,7 +5,7 @@
 // de toucher à quoi que ce soit. Idempotent par construction : la clé du doc
 // `payments/{id}` est l'ID de transaction FedaPay lui-même.
 const { db } = require('./_lib/firebaseAdmin');
-const { retrieveTransaction, constructWebhookEvent } = require('./_lib/fedapay');
+const { retrieveTransaction, resolveCurrencyIso, constructWebhookEvent } = require('./_lib/fedapay');
 
 const PREMIUM_AMOUNT = 1000;
 const PREMIUM_CURRENCY = 'XOF';
@@ -82,18 +82,28 @@ async function handler(req, res) {
     // Re-vérification indépendante auprès de FedaPay — jamais confiance au
     // seul évènement webhook pour le statut/montant/devise.
     const transaction = await retrieveTransaction(transactionId);
-    const amountOk = transaction.amount === PREMIUM_AMOUNT;
-    const currencyOk = transaction.currency && transaction.currency.iso === PREMIUM_CURRENCY;
+    // Number() : l'API peut renvoyer le montant en chaîne selon les versions.
+    // La comparaison reste stricte sur la valeur (Number('100') !== 1000).
+    const amountOk = Number(transaction.amount) === PREMIUM_AMOUNT;
+    const currencyIso = await resolveCurrencyIso(transaction);
+    const currencyOk = currencyIso === PREMIUM_CURRENCY;
     const paidOk = typeof transaction.wasPaid === 'function' ? transaction.wasPaid() : transaction.status === 'approved';
 
     console.log('[webhook] transaction relue chez FedaPay:', transactionId,
       '| statut:', transaction.status, '| montant:', transaction.amount,
-      '| devise:', transaction.currency && transaction.currency.iso);
+      '| devise:', currencyIso, '(currency_id:', transaction.currency_id + ')');
 
     if (!paidOk || !amountOk || !currencyOk) {
       console.error('[webhook] transaction NON CONFORME, aucune activation:', transactionId,
-        JSON.stringify({ payee: paidOk, montant_attendu: PREMIUM_AMOUNT, montant_recu: transaction.amount,
-                         devise_attendue: PREMIUM_CURRENCY, devise_recue: transaction.currency && transaction.currency.iso }));
+        JSON.stringify({
+          payee: paidOk,
+          montant_attendu: PREMIUM_AMOUNT,
+          montant_recu: transaction.amount,
+          devise_attendue: PREMIUM_CURRENCY,
+          devise_recue: currencyIso,
+          currency_field_raw: transaction.currency,
+          currency_id: transaction.currency_id
+        }));
       res.status(200).json({ received: true, error: 'Transaction non conforme, ignorée.' });
       return;
     }
