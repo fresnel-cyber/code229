@@ -1748,7 +1748,12 @@ var TIKTOK_PIXEL_ID = '';
     try{
       firebase.initializeApp({
         apiKey: "AIzaSyA4c4HQ4wSJPJZ5szc6JAp1jpkc6hd6SNI",
-        authDomain: "code229-978a6.firebaseapp.com",
+        // Volontairement NOTRE domaine, pas <projet>.firebaseapp.com : le
+        // handler d'auth est proxifié sur /__/auth/* (voir vercel.json), donc
+        // tout le flux OAuth reste same-origin. Sans ça, Firefox et Safari
+        // cloisonnent le stockage entre les deux sites et le retour de Google
+        // échoue sur « missing initial state » — aucun lien n'est établi.
+        authDomain: "www.code229.online",
         projectId: "code229-978a6",
         storageBucket: "code229-978a6.firebasestorage.app",
         messagingSenderId: "79502244122",

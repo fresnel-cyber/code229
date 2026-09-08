@@ -1,11 +1,29 @@
 {
   "rewrites": [
-    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
-    { "source": "/entrainement", "destination": "/api/page?route=/entrainement" },
-    { "source": "/fiches", "destination": "/api/page?route=/fiches" },
-    { "source": "/progression", "destination": "/api/page?route=/progression" }
+    {
+      "source": "/__/auth/:path*",
+      "destination": "https://code229-978a6.firebaseapp.com/__/auth/:path*"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/entrainement",
+      "destination": "/api/page?route=/entrainement"
+    },
+    {
+      "source": "/fiches",
+      "destination": "/api/page?route=/fiches"
+    },
+    {
+      "source": "/progression",
+      "destination": "/api/page?route=/progression"
+    }
   ],
   "functions": {
-    "api/page.js": { "includeFiles": "index.html" }
+    "api/page.js": {
+      "includeFiles": "index.html"
+    }
   }
 }
