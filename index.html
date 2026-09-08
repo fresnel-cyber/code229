@@ -4972,8 +4972,10 @@ var TIKTOK_PIXEL_ID = '';
         fileInput.value = '';
       });
     }
-    var signIn = document.querySelector('[data-action="sign-in-google"]');
-    if(signIn) signIn.addEventListener('click', signInWithGoogle);
+    // sign-in-google est déjà branché par bindCommonActions() juste au-dessus :
+    // le rebrancher ici posait un SECOND écouteur, donc deux appels à
+    // signInWithGoogle() par clic, donc deux popups — Firefox bloquait le
+    // second ("Opening multiple popups was blocked").
     var signOut = document.querySelector('[data-action="sign-out"]');
     if(signOut) signOut.addEventListener('click', signOutUser);
   }
