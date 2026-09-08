@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>CODE 229 — Révise le code de la route (Bénin)</title>
 <script>
 /* Applique les préférences d'affichage (thème, taille de texte) avant même le
@@ -136,6 +136,9 @@
     font-family:var(--font-body);
     -webkit-font-smoothing:antialiased;
     min-height:100vh;
+    /* Supprime le zoom par double-tap (et le délai de 300 ms qui va avec) :
+       l'app doit réagir comme une appli installée, pas comme une page web. */
+    touch-action:manipulation;
     /* Sélection de texte désactivée par défaut : en PWA installée, un
        appui long sur un libellé de bouton/carte (ex. un badge) ouvre le
        menu de sélection natif du téléphone (Copier/Partager, barre de
@@ -5336,6 +5339,19 @@ var TIKTOK_PIXEL_ID = '';
       navigator.serviceWorker.register('sw.js').catch(function(){});
     });
   }
+
+  /* Blocage du zoom à deux doigts sur iOS.
+     Safari ignore volontairement `user-scalable=no` depuis iOS 10 (pour des
+     raisons d'accessibilité), donc la balise viewport ne suffit pas : seuls
+     ces évènements `gesture*`, propres à WebKit, permettent de l'empêcher.
+     C'est un choix assumé pour que l'app se comporte comme une appli
+     installée et non comme une page web — l'élève qui a besoin d'un texte
+     plus grand dispose du réglage de taille dans les paramètres d'affichage,
+     qui reste la bonne façon d'agrandir ici (il adapte la mise en page au
+     lieu de faire déborder l'écran). */
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function(evt){
+    document.addEventListener(evt, function(e){ e.preventDefault(); }, {passive:false});
+  });
 </script>
 </body>
 </html>
