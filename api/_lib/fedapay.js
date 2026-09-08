@@ -38,15 +38,6 @@ async function retrieveTransaction(transactionId) {
 // doit remonter pour que le webhook réponde 500 et que FedaPay retente,
 // plutôt que de classer à tort un vrai paiement comme non conforme.
 async function resolveCurrencyIso(transaction) {
-  // Diagnostic : capturer le format réel retourné par le SDK
-  console.log('[fedapay] diagnostic devise brute:', {
-    currency_field_type: typeof transaction.currency,
-    currency_value: JSON.stringify(transaction.currency),
-    currency_iso: transaction.currency?.iso,
-    currency_id: transaction.currency_id,
-    transaction_keys: Object.keys(transaction).slice(0, 20) // Premiers 20 clés
-  });
-
   // Chemin direct si currency est déjà un objet avec iso (versions API qui le renvoient développé)
   if (transaction.currency && typeof transaction.currency === 'object' && transaction.currency.iso) {
     return transaction.currency.iso;

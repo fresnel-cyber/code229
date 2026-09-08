@@ -1820,23 +1820,18 @@ var TIKTOK_PIXEL_ID = '';
     var provider = new firebase.auth.GoogleAuthProvider();
     var user = auth.currentUser;
     var isAnon = !!(user && user.isAnonymous);
-    console.log('[auth] démarrage connexion — uid=' + (user ? user.uid : 'aucun') + ' isAnonymous=' + isAnon + ' méthode=popup');
 
     var attempt = isAnon ? user.linkWithPopup(provider) : auth.signInWithPopup(provider);
 
     attempt.then(function(result){
       var u = result && result.user;
-      console.log('[auth] popup OK — uid=' + (u && u.uid) + ' isAnonymous=' + (u && u.isAnonymous) +
-        ' providers=' + (u && u.providerData ? u.providerData.map(function(pd){ return pd.providerId; }).join(',') : ''));
       render(); // le popup ne recharge pas la page : on rafraîchit l'UI nous-mêmes
     }).catch(function(err){
       var code = err && err.code;
       if(POPUP_ABANDONED.indexOf(code) !== -1){
-        console.log('[auth] popup fermé par l\'utilisateur, aucune action');
         return;
       }
       if(code === 'auth/credential-already-in-use' && err.credential){
-        console.log('[auth] credential déjà utilisé par un autre uid');
         handleCredentialAlreadyInUse(err);
         return;
       }
@@ -2002,17 +1997,11 @@ var TIKTOK_PIXEL_ID = '';
   }
 
   if(CLOUD_ENABLED){
-    auth.getRedirectResult().then(function(result){
-      // Chemin de repli (popup indisponible) : le lien s'est fait via une
-      // redirection. onAuthStateChanged suivra automatiquement.
-      var u = result && result.user;
-      if(u){
-        console.log('[auth] retour redirection OK — uid=' + u.uid + ' isAnonymous=' + u.isAnonymous +
-          ' providers=' + (u.providerData ? u.providerData.map(function(pd){ return pd.providerId; }).join(',') : ''));
-      }
-    }).catch(function(err){
+    // Chemin de repli (popup indisponible) : le lien s'est fait par
+    // redirection. onAuthStateChanged prend le relais tout seul en cas de
+    // succès — il ne reste donc à traiter ici que les erreurs.
+    auth.getRedirectResult().catch(function(err){
       if(err && err.code === 'auth/credential-already-in-use' && err.credential){
-        console.log('[auth] retour redirection — credential déjà utilisé par un autre uid');
         handleCredentialAlreadyInUse(err);
       } else if(err && err.code){
         console.error('[auth] redirect error:', err.code, err.message);
@@ -2020,10 +2009,8 @@ var TIKTOK_PIXEL_ID = '';
       }
     });
     auth.onAuthStateChanged(function(user){
-      console.log('[auth] onAuthStateChanged:', user ? (user.isAnonymous ? 'anonymous uid=' + user.uid : 'Google uid=' + user.uid) : 'null');
       var wasSignedIn = !!state.user;
       if(user && !user.isAnonymous){
-        console.log('[auth] updating state.user, wasSignedIn=' + wasSignedIn);
         state.user = {uid:user.uid, email:user.email, displayName:user.displayName, photoURL:user.photoURL};
         if(!wasSignedIn){
           reconcileCloudProgress(state.user);
@@ -2035,7 +2022,6 @@ var TIKTOK_PIXEL_ID = '';
         // Forcer le render après TOUTE mise à jour de state.user, pas seulement
         // la première connexion : corrige le cas où onAuthStateChanged se
         // déclenche plusieurs fois ou après que l'utilisateur ait déjà navigué.
-        console.log('[auth] calling render() to sync UI with connected state');
         render();
       } else {
         state.user = null;
@@ -2044,7 +2030,6 @@ var TIKTOK_PIXEL_ID = '';
         // Aucune session (première visite, ou déconnexion) : un UID anonyme
         // silencieux donne immédiatement à l'app de quoi attacher un
         // abonnement, sans aucune friction ni UI de compte.
-        console.log('[auth] no user, signing in anonymously');
         auth.signInAnonymously().catch(function(){});
         return; // onAuthStateChanged se redéclenchera une fois l'UID créé
       }
@@ -3974,9 +3959,7 @@ var TIKTOK_PIXEL_ID = '';
     var u = auth.currentUser;
     if(u && !u.isAnonymous){
       state.user = {uid:u.uid, email:u.email, displayName:u.displayName, photoURL:u.photoURL};
-      console.log('[sync] state.user synced from auth.currentUser:', state.user.uid);
     } else {
-      if(state.user) console.log('[sync] clearing state.user (auth.currentUser is' + (u ? ' anonymous' : ' null') + ')');
       state.user = null;
     }
   }
