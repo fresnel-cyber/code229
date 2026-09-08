@@ -1770,21 +1770,90 @@ var TIKTOK_PIXEL_ID = '';
      compte Google à l'UID anonyme existant (linkWithRedirect) plutôt que de
      créer un nouvel UID, sinon l'abonnement Premium déjà attaché à l'UID
      anonyme serait abandonné. */
+  /* Un compte Google déjà rattaché à un AUTRE UID (autre appareil). Basculer
+     dessus rend inaccessible le Premium éventuellement payé sur l'UID anonyme
+     local : on ne le fait jamais en silence. Partagé entre le chemin popup et
+     le chemin redirection, qui remontent la même erreur à deux endroits. */
+  function handleCredentialAlreadyInUse(err){
+    var cred = err.credential;
+    var switchToExistingAccount = function(){
+      auth.signInWithCredential(cred).catch(function(){
+        toast('Connexion impossible : réessaie.');
+      });
+    };
+    var localUid = auth.currentUser && auth.currentUser.uid;
+    if(localUid && cachedPremiumFor(localUid)){
+      customConfirm(
+        'Ce compte Google est déjà utilisé sur un autre appareil. Si tu continues, l\'accès Premium acheté sur CET appareil ne sera plus accessible ici. Continuer quand même ?',
+        {okLabel:'Continuer', cancelLabel:'Annuler', danger:true}
+      ).then(function(ok){ if(ok) switchToExistingAccount(); });
+    } else {
+      switchToExistingAccount();
+    }
+  }
+
+  /* Popup d'abord, redirection en repli.
+
+     Pourquoi pas la redirection par défaut : le handler d'auth vit sur
+     <projet>.firebaseapp.com alors que l'app est sur www.code229.online. Au
+     retour de Google, ce handler doit relire l'état de session écrit au
+     départ — or Firefox (protection totale contre les cookies) et Safari
+     cloisonnent le stockage entre sites différents. Le handler ne retrouve
+     rien et échoue sur « missing initial state » : aucun lien n'est établi,
+     l'utilisateur revient toujours anonyme avec providerData vide.
+
+     Le popup s'exécute directement sur l'origine du handler : plus de
+     stockage tiers, donc plus de blocage. Et `linkWithPopup` garde la même
+     sémantique que `linkWithRedirect` — il rattache Google à l'utilisateur
+     anonyme COURANT, donc l'UID ne change pas et l'abonnement Premium
+     attaché à subscriptions/{uid} reste valable. */
+  var POPUP_UNAVAILABLE = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
+  var POPUP_ABANDONED = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
+
   function signInWithGoogle(){
     if(!CLOUD_ENABLED){ toast('Connexion indisponible hors-ligne.'); return; }
     var provider = new firebase.auth.GoogleAuthProvider();
-    var attempt = (auth.currentUser && auth.currentUser.isAnonymous)
-      ? auth.currentUser.linkWithRedirect(provider)
-      : auth.signInWithRedirect(provider);
-    // Sans ce .catch(), un échec (domaine non autorisé, réseau...) ne
-    // provoquait littéralement AUCUN signe visible — c'est justement ce
-    // qu'un testeur a rencontré sur iPhone.
-    attempt.catch(function(err){
-      if(err && err.code === 'auth/unauthorized-domain'){
-        toast('Ce domaine n\'est pas encore autorisé pour la connexion Google.');
-      } else {
-        toast('Connexion impossible : réessaie.');
+    var user = auth.currentUser;
+    var isAnon = !!(user && user.isAnonymous);
+    console.log('[auth] démarrage connexion — uid=' + (user ? user.uid : 'aucun') + ' isAnonymous=' + isAnon + ' méthode=popup');
+
+    var attempt = isAnon ? user.linkWithPopup(provider) : auth.signInWithPopup(provider);
+
+    attempt.then(function(result){
+      var u = result && result.user;
+      console.log('[auth] popup OK — uid=' + (u && u.uid) + ' isAnonymous=' + (u && u.isAnonymous) +
+        ' providers=' + (u && u.providerData ? u.providerData.map(function(pd){ return pd.providerId; }).join(',') : ''));
+      render(); // le popup ne recharge pas la page : on rafraîchit l'UI nous-mêmes
+    }).catch(function(err){
+      var code = err && err.code;
+      if(POPUP_ABANDONED.indexOf(code) !== -1){
+        console.log('[auth] popup fermé par l\'utilisateur, aucune action');
+        return;
       }
+      if(code === 'auth/credential-already-in-use' && err.credential){
+        console.log('[auth] credential déjà utilisé par un autre uid');
+        handleCredentialAlreadyInUse(err);
+        return;
+      }
+      if(code === 'auth/unauthorized-domain'){
+        console.error('[auth] domaine non autorisé dans Firebase');
+        toast('Ce domaine n\'est pas encore autorisé pour la connexion Google.');
+        return;
+      }
+      if(POPUP_UNAVAILABLE.indexOf(code) !== -1){
+        // Popup impossible (bloqué, ou PWA iOS en mode autonome) : on retombe
+        // sur la redirection, qui fonctionne là où le stockage n'est pas
+        // cloisonné. getRedirectResult() prendra le relais au retour.
+        console.warn('[auth] popup indisponible (' + code + '), repli sur la redirection');
+        var fallback = isAnon ? auth.currentUser.linkWithRedirect(provider) : auth.signInWithRedirect(provider);
+        fallback.catch(function(e2){
+          console.error('[auth] repli redirection échoué:', e2 && e2.code, e2 && e2.message);
+          toast('Connexion impossible : réessaie.');
+        });
+        return;
+      }
+      console.error('[auth] échec connexion:', code, err && err.message);
+      toast('Connexion impossible : réessaie.');
     });
   }
   function signOutUser(){
@@ -1929,36 +1998,17 @@ var TIKTOK_PIXEL_ID = '';
 
   if(CLOUD_ENABLED){
     auth.getRedirectResult().then(function(result){
-      // Succès de linkWithRedirect : l'utilisateur anonyme a été lié à Google.
-      // onAuthStateChanged se déclenchera automatiquement avec le compte lié.
-      if(result && result.user && !result.user.isAnonymous){
-        console.log('[auth] redirect success: anonymous user linked to Google, uid=' + result.user.uid);
+      // Chemin de repli (popup indisponible) : le lien s'est fait via une
+      // redirection. onAuthStateChanged suivra automatiquement.
+      var u = result && result.user;
+      if(u){
+        console.log('[auth] retour redirection OK — uid=' + u.uid + ' isAnonymous=' + u.isAnonymous +
+          ' providers=' + (u.providerData ? u.providerData.map(function(pd){ return pd.providerId; }).join(',') : ''));
       }
     }).catch(function(err){
       if(err && err.code === 'auth/credential-already-in-use' && err.credential){
-        // Ce compte Google est déjà lié à un autre UID (autre appareil) : on
-        // bascule dessus pour retrouver l'abonnement/la progression de ce
-        // compte plutôt que de rester sur l'UID anonyme local.
-        console.log('[auth] credential-already-in-use: Google account exists on different uid');
-        var cred = err.credential;
-        var switchToExistingAccount = function(){
-          auth.signInWithCredential(cred).catch(function(){
-            toast('Connexion impossible : réessaie.');
-          });
-        };
-        // MAIS si un Premium a été payé sur l'UID anonyme local, basculer le
-        // rend inaccessible ici. On ne fait jamais ça en silence : c'est de
-        // l'argent déjà dépensé. (Le cache local est plus fiable que
-        // state.premium à cet instant précis du retour de redirection.)
-        var localUid = auth.currentUser && auth.currentUser.uid;
-        if(localUid && cachedPremiumFor(localUid)){
-          customConfirm(
-            'Ce compte Google est déjà utilisé sur un autre appareil. Si tu continues, l\'accès Premium acheté sur CET appareil ne sera plus accessible ici. Continuer quand même ?',
-            {okLabel:'Continuer', cancelLabel:'Annuler', danger:true}
-          ).then(function(ok){ if(ok) switchToExistingAccount(); });
-        } else {
-          switchToExistingAccount();
-        }
+        console.log('[auth] retour redirection — credential déjà utilisé par un autre uid');
+        handleCredentialAlreadyInUse(err);
       } else if(err && err.code){
         console.error('[auth] redirect error:', err.code, err.message);
         toast('Connexion impossible : réessaie.');
