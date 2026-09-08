@@ -1857,9 +1857,13 @@ var TIKTOK_PIXEL_ID = '';
     if(!user || !db){ state.premium = null; return; }
     state.premium = cachedPremiumFor(user.uid); // optimiste le temps que Firestore réponde
     premiumUnsub = db.collection('subscriptions').doc(user.uid).onSnapshot(function(doc){
+      var wasPremium = isPremiumActive();
       state.premium = doc.exists ? {status:doc.data().status, expiresAt:doc.data().premium_expires_at||0} : null;
       cachePremium(user.uid, state.premium);
-      if(state.view !== 'quiz') render(); // évite de perturber une session en cours
+      var nowPremium = isPremiumActive();
+      // Forcer le render immédiat si le statut Premium change (activation/expiration)
+      // ou si on n'est pas en quiz (évite de perturber une session en cours).
+      if(state.view !== 'quiz' || wasPremium !== nowPremium) render();
     }, function(){ /* injoignable : on garde le dernier statut connu du cache */ });
   }
 
@@ -1962,6 +1966,9 @@ var TIKTOK_PIXEL_ID = '';
           // de Google — exactement le trou d'expérience remonté par un testeur.
           var first = (state.user.displayName||'').trim().split(/\s+/)[0];
           toast('✓ Parcours sauvegardé'+(first?' — Bienvenue, '+first+' !':' !'));
+          // Forcer le render immédiat après connexion réussie pour masquer les CTA
+          // "Sécuriser mon accès" / "Sauvegarder mon parcours" sans délai.
+          render();
         }
       } else {
         state.user = null;
@@ -1974,7 +1981,6 @@ var TIKTOK_PIXEL_ID = '';
         return; // onAuthStateChanged se redéclenchera une fois l'UID créé
       }
       watchPremiumStatus(user);
-      if(state.view === 'progression') render();
     });
   }
 
