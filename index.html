@@ -1928,11 +1928,18 @@ var TIKTOK_PIXEL_ID = '';
   }
 
   if(CLOUD_ENABLED){
-    auth.getRedirectResult().catch(function(err){
+    auth.getRedirectResult().then(function(result){
+      // Succès de linkWithRedirect : l'utilisateur anonyme a été lié à Google.
+      // onAuthStateChanged se déclenchera automatiquement avec le compte lié.
+      if(result && result.user && !result.user.isAnonymous){
+        console.log('[auth] redirect success: anonymous user linked to Google, uid=' + result.user.uid);
+      }
+    }).catch(function(err){
       if(err && err.code === 'auth/credential-already-in-use' && err.credential){
         // Ce compte Google est déjà lié à un autre UID (autre appareil) : on
         // bascule dessus pour retrouver l'abonnement/la progression de ce
         // compte plutôt que de rester sur l'UID anonyme local.
+        console.log('[auth] credential-already-in-use: Google account exists on different uid');
         var cred = err.credential;
         var switchToExistingAccount = function(){
           auth.signInWithCredential(cred).catch(function(){
@@ -1952,13 +1959,16 @@ var TIKTOK_PIXEL_ID = '';
         } else {
           switchToExistingAccount();
         }
-      } else {
+      } else if(err && err.code){
+        console.error('[auth] redirect error:', err.code, err.message);
         toast('Connexion impossible : réessaie.');
       }
     });
     auth.onAuthStateChanged(function(user){
+      console.log('[auth] onAuthStateChanged:', user ? (user.isAnonymous ? 'anonymous uid=' + user.uid : 'Google uid=' + user.uid) : 'null');
       var wasSignedIn = !!state.user;
       if(user && !user.isAnonymous){
+        console.log('[auth] updating state.user, wasSignedIn=' + wasSignedIn);
         state.user = {uid:user.uid, email:user.email, displayName:user.displayName, photoURL:user.photoURL};
         if(!wasSignedIn){
           reconcileCloudProgress(state.user);
@@ -1966,10 +1976,12 @@ var TIKTOK_PIXEL_ID = '';
           // de Google — exactement le trou d'expérience remonté par un testeur.
           var first = (state.user.displayName||'').trim().split(/\s+/)[0];
           toast('✓ Parcours sauvegardé'+(first?' — Bienvenue, '+first+' !':' !'));
-          // Forcer le render immédiat après connexion réussie pour masquer les CTA
-          // "Sécuriser mon accès" / "Sauvegarder mon parcours" sans délai.
-          render();
         }
+        // Forcer le render après TOUTE mise à jour de state.user, pas seulement
+        // la première connexion : corrige le cas où onAuthStateChanged se
+        // déclenche plusieurs fois ou après que l'utilisateur ait déjà navigué.
+        console.log('[auth] calling render() to sync UI with connected state');
+        render();
       } else {
         state.user = null;
       }
@@ -1977,6 +1989,7 @@ var TIKTOK_PIXEL_ID = '';
         // Aucune session (première visite, ou déconnexion) : un UID anonyme
         // silencieux donne immédiatement à l'app de quoi attacher un
         // abonnement, sans aucune friction ni UI de compte.
+        console.log('[auth] no user, signing in anonymously');
         auth.signInAnonymously().catch(function(){});
         return; // onAuthStateChanged se redéclenchera une fois l'UID créé
       }
