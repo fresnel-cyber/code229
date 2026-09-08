@@ -16,9 +16,25 @@ function readRawBody(req) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
     req.on('data', function (c) { chunks.push(c); });
-    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
+    // On renvoie les OCTETS BRUTS, sans toString() : la signature porte sur
+    // les octets exacts reçus. Le SDK FedaPay accepte un Buffer et fait
+    // lui-même la conversion utf8 (WebhookSignature.verifyHeader).
+    req.on('end', function () { resolve(Buffer.concat(chunks)); });
     req.on('error', reject);
   });
+}
+
+/* L'ID de la transaction ne se trouve pas au même endroit selon le format
+   d'événement : `object_id` (format ressource Event du SDK) ou `entity.id`
+   (format des webhooks FedaPay, qui utilisent `name` + `entity`). On couvre
+   les deux plutôt que de parier sur un seul. */
+function extractTransactionId(event) {
+  if (!event) return null;
+  if (event.object_id) return event.object_id;
+  if (event.entity && !Array.isArray(event.entity) && event.entity.id) return event.entity.id;
+  if (event.entity_id) return event.entity_id;
+  if (event.data && event.data.id) return event.data.id;
+  return null;
 }
 
 async function handler(req, res) {
@@ -29,29 +45,38 @@ async function handler(req, res) {
 
   const rawBody = await readRawBody(req);
   const signature = req.headers['x-fedapay-signature'];
+  console.log('[webhook] reçu — octets:', rawBody.length, '| signature présente:', !!signature);
 
   let event;
   try {
     event = constructWebhookEvent(rawBody, signature, process.env.FEDAPAY_WEBHOOK_SECRET);
   } catch (e) {
-    console.error('webhook signature invalide:', e.message);
+    console.error('[webhook] signature invalide:', e.message);
     res.status(400).json({ error: 'Signature invalide.' });
     return;
   }
 
+  // Le SDK expose `type` sur la ressource Event, mais les webhooks FedaPay
+  // envoient `name` : on accepte les deux plutôt que de parier sur un seul
+  // format et de rater silencieusement tous les paiements.
+  const eventName = event.name || event.type;
+  console.log('[webhook] signature valide — évènement:', eventName);
+
   // On ne traite que les paiements confirmés ; tout autre événement (créé,
   // décliné, annulé...) est simplement acquitté sans action.
-  if (event.type !== 'transaction.approved') {
-    res.status(200).json({ received: true, ignored: event.type });
+  if (eventName !== 'transaction.approved') {
+    console.log('[webhook] ignoré (évènement non pertinent):', eventName);
+    res.status(200).json({ received: true, ignored: eventName });
     return;
   }
 
-  const transactionId = event.object_id || event.entity_id || (event.data && event.data.id);
+  const transactionId = extractTransactionId(event);
   if (!transactionId) {
-    console.error('webhook transaction.approved sans object_id:', JSON.stringify(event));
+    console.error('[webhook] transaction.approved sans ID exploitable — clés reçues:', Object.keys(event).join(','));
     res.status(200).json({ received: true, error: 'ID de transaction introuvable dans l\'événement.' });
     return;
   }
+  console.log('[webhook] transaction détectée:', transactionId);
 
   try {
     // Re-vérification indépendante auprès de FedaPay — jamais confiance au
@@ -61,8 +86,14 @@ async function handler(req, res) {
     const currencyOk = transaction.currency && transaction.currency.iso === PREMIUM_CURRENCY;
     const paidOk = typeof transaction.wasPaid === 'function' ? transaction.wasPaid() : transaction.status === 'approved';
 
+    console.log('[webhook] transaction relue chez FedaPay:', transactionId,
+      '| statut:', transaction.status, '| montant:', transaction.amount,
+      '| devise:', transaction.currency && transaction.currency.iso);
+
     if (!paidOk || !amountOk || !currencyOk) {
-      console.error('webhook transaction suspecte:', transactionId, { paidOk: paidOk, amountOk: amountOk, currencyOk: currencyOk });
+      console.error('[webhook] transaction NON CONFORME, aucune activation:', transactionId,
+        JSON.stringify({ payee: paidOk, montant_attendu: PREMIUM_AMOUNT, montant_recu: transaction.amount,
+                         devise_attendue: PREMIUM_CURRENCY, devise_recue: transaction.currency && transaction.currency.iso }));
       res.status(200).json({ received: true, error: 'Transaction non conforme, ignorée.' });
       return;
     }
@@ -74,13 +105,14 @@ async function handler(req, res) {
       // Transaction inconnue de nous (jamais créée via /api/create-payment) :
       // on n'active rien, mais on répond 2xx pour ne pas déclencher de retries
       // infinis côté FedaPay.
-      console.error('webhook: aucun doc payments/ pour la transaction', transactionId);
+      console.error('[webhook] aucun doc payments/' + transactionId + ' — transaction jamais créée via /api/create-payment, aucune activation.');
       res.status(200).json({ received: true, error: 'Paiement inconnu.' });
       return;
     }
 
     if (paymentSnap.data().status === 'approved') {
       // Déjà traité (webhook reçu plusieurs fois) : idempotent, on s'arrête là.
+      console.log('[webhook] déjà traité, aucune double activation:', transactionId);
       res.status(200).json({ received: true, already_processed: true });
       return;
     }
@@ -108,9 +140,11 @@ async function handler(req, res) {
       }, { merge: true });
     });
 
+    console.log('[webhook] Premium activé — uid:', uid, '| expire le:', new Date(newExpiry).toISOString(),
+      '| prolongation d\'un abonnement en cours:', isCurrentlyActive);
     res.status(200).json({ received: true, activated: true, uid: uid, premium_expires_at: newExpiry });
   } catch (e) {
-    console.error('fedapay-webhook error:', e);
+    console.error('[webhook] erreur technique (FedaPay retentera):', e && e.message, e && e.stack);
     // 500 : on VEUT que FedaPay retente si notre vérification a échoué pour
     // une raison technique (Firestore indisponible, etc.), contrairement aux
     // cas métier ci-dessus qu'on acquitte volontairement en 200.
