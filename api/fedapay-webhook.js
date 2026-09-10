@@ -6,10 +6,9 @@
 // `payments/{id}` est l'ID de transaction FedaPay lui-même.
 const { db } = require('./_lib/firebaseAdmin');
 const { retrieveTransaction, resolveCurrencyIso, constructWebhookEvent } = require('./_lib/fedapay');
-
-const PREMIUM_AMOUNT = 1000;
-const PREMIUM_CURRENCY = 'XOF';
-const PREMIUM_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
+// Montant, devise et activation sont partagés avec KPay : une seule
+// définition, donc aucun risque de voir les deux prestataires diverger.
+const { PREMIUM_AMOUNT, PREMIUM_CURRENCY, activatePremium } = require('./_lib/premium');
 
 
 function readRawBody(req) {
@@ -128,31 +127,11 @@ async function handler(req, res) {
     }
 
     const uid = paymentSnap.data().uid;
-    const now = Date.now();
-    const subRef = db.collection('subscriptions').doc(uid);
-    const subSnap = await subRef.get();
-    const current = subSnap.exists ? subSnap.data() : null;
-    const isCurrentlyActive = current && current.status === 'active' && current.premium_expires_at > now;
+    const result = await activatePremium(db, paymentRef, uid);
 
-    // Un abonnement déjà actif se prolonge à partir de sa date d'expiration
-    // existante plutôt que d'être écrasé depuis maintenant (évite de perdre
-    // des jours si le webhook arrive après un renouvellement anticipé).
-    const startBase = isCurrentlyActive ? current.premium_expires_at : now;
-    const newExpiry = startBase + PREMIUM_DURATION_MS;
-
-    await db.runTransaction(async function (t) {
-      t.update(paymentRef, { status: 'approved', confirmed_at: now });
-      t.set(subRef, {
-        status: 'active',
-        premium_started_at: (current && current.premium_started_at) || now,
-        premium_expires_at: newExpiry,
-        updated_at: now
-      }, { merge: true });
-    });
-
-    console.log('[webhook] Premium activé — uid:', uid, '| expire le:', new Date(newExpiry).toISOString(),
-      '| prolongation d\'un abonnement en cours:', isCurrentlyActive);
-    res.status(200).json({ received: true, activated: true, uid: uid, premium_expires_at: newExpiry });
+    console.log('[webhook] Premium activé — uid:', uid, '| expire le:', new Date(result.newExpiry).toISOString(),
+      '| prolongation d\'un abonnement en cours:', result.extended);
+    res.status(200).json({ received: true, activated: true, uid: uid, premium_expires_at: result.newExpiry });
   } catch (e) {
     console.error('[webhook] erreur technique (FedaPay retentera):', e && e.message, e && e.stack);
     // 500 : on VEUT que FedaPay retente si notre vérification a échoué pour
