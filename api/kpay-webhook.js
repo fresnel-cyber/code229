@@ -3,7 +3,7 @@
 // n'active JAMAIS rien. Idempotent par construction : la clé du document
 // payments/{kpay_<paymentId>} est l'identifiant KPay lui-même.
 const { db } = require('./_lib/firebaseAdmin');
-const { verifyWebhookSignature } = require('./_lib/kpay');
+const { getPayment, verifyWebhookSignature } = require('./_lib/kpay');
 const { PREMIUM_AMOUNT, activatePremium } = require('./_lib/premium');
 
 function readRawBody(req) {
@@ -55,18 +55,27 @@ async function handler(req, res) {
   }
 
   try {
-    const statusOk = String(event.status).toUpperCase() === 'COMPLETED';
-    const amountOk = Number(event.amount) === PREMIUM_AMOUNT;
-    if (!statusOk || !amountOk) {
-      console.error('[kpay] évènement NON CONFORME, aucune activation:', event.paymentId,
-        JSON.stringify({ statut: event.status, montant_attendu: PREMIUM_AMOUNT, montant_recu: event.amount }));
-      res.status(200).json({ received: true, error: 'Paiement non conforme, ignoré.' });
-      return;
-    }
-
     if (!event.paymentId) {
       console.error('[kpay] évènement sans paymentId, impossible de rattacher');
       res.status(200).json({ received: true, error: 'paymentId manquant.' });
+      return;
+    }
+
+    // Règle d'or KPay : on ne se fie JAMAIS au statut ni au montant annoncés
+    // dans le corps du webhook. On relit le paiement à la source avant toute
+    // activation. Si cet appel échoue pour une raison technique, l'exception
+    // remonte au catch et renvoie 500 — KPay retentera, plutôt que de
+    // considérer à tort un vrai paiement comme non conforme.
+    const authoritative = await getPayment(event.paymentId);
+    const statusOk = String(authoritative.status).toUpperCase() === 'COMPLETED';
+    const amountOk = Number(authoritative.amount) === PREMIUM_AMOUNT;
+    console.log('[kpay] paiement relu chez KPay:', event.paymentId,
+      '| statut:', authoritative.status, '| montant:', authoritative.amount);
+
+    if (!statusOk || !amountOk) {
+      console.error('[kpay] paiement NON CONFORME, aucune activation:', event.paymentId,
+        JSON.stringify({ statut: authoritative.status, montant_attendu: PREMIUM_AMOUNT, montant_recu: authoritative.amount }));
+      res.status(200).json({ received: true, error: 'Paiement non conforme, ignoré.' });
       return;
     }
 
@@ -93,7 +102,8 @@ async function handler(req, res) {
     }
 
     // Le lien avec NOTRE commande : l'externalId que nous avons généré.
-    if (event.externalId && payment.externalId && event.externalId !== payment.externalId) {
+    const externalId = authoritative.externalId || event.externalId;
+    if (externalId && payment.externalId && externalId !== payment.externalId) {
       console.error('[kpay] externalId incohérent, aucune activation:', event.paymentId);
       res.status(200).json({ received: true, error: 'Paiement non rattachable.' });
       return;

@@ -38,8 +38,9 @@ async function initPayment(params) {
     body: JSON.stringify({
       amount: params.amount,
       externalId: params.externalId,
-      returnUrl: params.returnUrl,
+      successUrl: params.successUrl,
       cancelUrl: params.cancelUrl,
+      returnUrl: params.returnUrl,
       description: params.description,
       metadata: params.metadata
     })
@@ -67,6 +68,31 @@ async function initPayment(params) {
 }
 
 /**
+ * Relit un paiement directement chez KPay.
+ *
+ * La documentation KPay en fait sa « règle d'or » : ne marquer une commande
+ * payée qu'après une signature valide ET un statut COMPLETED confirmé par
+ * cet appel. On ne fait donc jamais confiance au seul corps du webhook pour
+ * le statut ou le montant — c'est la même précaution que côté FedaPay.
+ */
+async function getPayment(paymentId) {
+  const res = await fetch(KPAY_BASE_URL + '/api/v1/payments/' + encodeURIComponent(paymentId), {
+    method: 'GET',
+    headers: {
+      'X-API-Key': process.env.KPAY_API_KEY,
+      'X-Secret-Key': process.env.KPAY_SECRET_KEY
+    }
+  });
+  const text = await res.text();
+  let data = null;
+  try { data = JSON.parse(text); } catch (e) { /* réponse non JSON */ }
+  if (!res.ok || !data) {
+    throw new Error('KPay get: HTTP ' + res.status + ' — ' + String(text).slice(0, 200));
+  }
+  return data.data && typeof data.data === 'object' ? data.data : data;
+}
+
+/**
  * Vérifie la signature d'un webhook KPay.
  * Documentation officielle : en-tête `X-KPAY-Signature`, HMAC-SHA256 en
  * hexadécimal calculé sur le CORPS BRUT reçu (surtout pas re-sérialisé),
@@ -82,4 +108,4 @@ function verifyWebhookSignature(rawBody, signatureHeader, secret) {
   return crypto.timingSafeEqual(received, computed);
 }
 
-module.exports = { initPayment, verifyWebhookSignature };
+module.exports = { initPayment, getPayment, verifyWebhookSignature };

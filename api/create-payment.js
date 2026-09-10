@@ -41,11 +41,17 @@ module.exports = async function handler(req, res) {
       // avec le document Firestore pour confirmer que le paiement est bien
       // le nôtre.
       const externalId = 'c229_' + uid + '_' + Date.now();
+      // Mode GATEWAY (page de paiement hébergée par KPay) : on n'envoie NI
+      // phoneNumber, NI paymentMethod, NI customerName — c'est leur absence
+      // qui sélectionne ce mode. Le client choisit lui-même son opérateur sur
+      // la page KPay. successUrl/cancelUrl sont les destinations de retour,
+      // returnUrl servant de repli général.
       const result = await initPayment({
         amount: PREMIUM_AMOUNT,
         externalId: externalId,
-        returnUrl: appBaseUrl + '/?payment=return',
+        successUrl: appBaseUrl + '/?payment=return',
         cancelUrl: appBaseUrl + '/?payment=cancel',
+        returnUrl: appBaseUrl + '/?payment=return',
         description: DESCRIPTION,
         metadata: { uid: uid, product: 'premium_30_days' }
       });
