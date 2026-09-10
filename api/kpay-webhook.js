@@ -28,9 +28,19 @@ async function handler(req, res) {
 
   // Le secret de signature peut être distinct de la clé secrète d'API selon la
   // configuration du tableau de bord : on accepte les deux noms de variable.
+  // KPay génère un SECRET DE WEBHOOK distinct de la clé secrète d'API : c'est
+  // lui qui signe les notifications. On retombe sur KPAY_SECRET_KEY seulement
+  // s'il n'est pas configuré, mais ce repli ne produira pas une signature
+  // valide — d'où le diagnostic ci-dessous en cas d'échec.
   const secret = process.env.KPAY_WEBHOOK_SECRET || process.env.KPAY_SECRET_KEY;
   if (!verifyWebhookSignature(rawBody, signature, secret)) {
-    console.error('[kpay] signature invalide, rien activé');
+    // Diagnostic sans fuite : on ne journalise ni le secret, ni la signature,
+    // uniquement de quoi distinguer « mauvais secret » de « format inattendu ».
+    const sig = String(signature || '');
+    console.error('[kpay] signature invalide, rien activé —',
+      'secret dédié configuré:', !!process.env.KPAY_WEBHOOK_SECRET,
+      '| longueur signature:', sig.length, '(64 attendu pour du HMAC-SHA256 hex)',
+      '| hexadécimal pur:', /^[0-9a-f]+$/i.test(sig));
     res.status(400).json({ error: 'Signature invalide.' });
     return;
   }
