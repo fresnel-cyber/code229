@@ -3112,7 +3112,11 @@ var TIKTOK_PIXEL_ID = '';
      "publiques" gardent leur URL dédiée ; les vues internes empilent une
      entrée sur l'URL courante, invisible mais bien réelle pour l'historique. */
   function syncUrlForView(view, replace){
-    var path = VIEW_ROUTES[view] || location.pathname;
+    // Au tout premier appel (replace), on conserve la query string : le
+    // trafic venu d'une publicité arrive avec ses paramètres de campagne, et
+    // les effacer casserait l'attribution. Les navigations suivantes, elles,
+    // n'ont aucune raison de traîner ces paramètres de page en page.
+    var path = (VIEW_ROUTES[view] || location.pathname) + (replace ? location.search : '');
     var entryState = {appView: view};
     // Un retour vers "results" doit réafficher EXACTEMENT la session qui
     // était affichée à ce moment-là, même si state.lastSession a depuis été
@@ -5223,8 +5227,19 @@ var TIKTOK_PIXEL_ID = '';
      prend plus de quelques secondes (retard réseau, webhook pas encore reçu). */
   function handlePaymentReturn(){
     var params = new URLSearchParams(location.search);
-    if(params.get('payment') !== 'return') return;
+    var flag = params.get('payment');
+    if(!flag) return;
     history.replaceState(null, '', location.pathname);
+
+    // Paiement abandonné (cancelUrl) : on ne culpabilise pas et on ne bloque
+    // rien. Le quota gratuit et la progression sont intacts, l'élève reprend
+    // exactement où il en était.
+    if(flag === 'cancel'){
+      toast('Paiement annulé — tu peux réessayer quand tu veux.');
+      return;
+    }
+    if(flag !== 'return') return;
+
     toast('Vérification du paiement…');
     var checks = 0;
     var iv = setInterval(function(){
@@ -5252,9 +5267,11 @@ var TIKTOK_PIXEL_ID = '';
       var routedView = location.pathname === '/' ? null : ROUTE_VIEWS[location.pathname];
       state.view = routedView || (progress.onboarded ? 'home' : 'diagnostic');
       render();
+      // AVANT syncUrlForView : celui-ci réécrit l'URL, et le paramètre
+      // ?payment=… ne serait plus lisible ensuite.
+      handlePaymentReturn();
       syncUrlForView(state.view, true); // replaceState : premier écran, rien à empiler par-dessus
       trackEvent('app_opened');
-      handlePaymentReturn();
       saveStreakSnapshot();
       if(notificationsSupported() && Notification.permission === 'granted') registerPeriodicStreakSync();
 
