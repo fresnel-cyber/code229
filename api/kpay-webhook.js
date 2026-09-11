@@ -86,12 +86,15 @@ async function handler(req, res) {
     // d'opérateurs de l'application est la première protection ; celle-ci est
     // la seconde, au cas où un pays serait rouvert sans y repenser.
     //
-    // Devise absente de la réponse : on ACCEPTE en le signalant bruyamment.
-    // Le nom exact du champ n'a pas pu être confirmé sur la documentation
-    // publique, et refuser sur un champ peut-être mal nommé bloquerait tous
-    // les paiements légitimes — un échec bien pire que le risque couvert,
-    // déjà tenu par la liste blanche. Si ce message apparaît en production,
-    // c'est le nom du champ qu'il faut corriger ici.
+    // Le champ s'appelle bien `currency` : confirmé en production le
+    // 11/09/2026 par un paiement live (MTN MoMo Bénin), qui a renvoyé XOF.
+    //
+    // Devise absente de la réponse : on ACCEPTE malgré tout, en le signalant
+    // bruyamment. Bloquer un client qui a réellement payé est un échec pire
+    // que le risque couvert ici, lequel est déjà tenu par la liste blanche
+    // d'opérateurs de l'application. Si ce message apparaît, c'est que KPay a
+    // changé sa réponse : il faut alors corriger le nom du champ, pas
+    // supprimer le garde-fou.
     const currency = authoritative.currency || authoritative.currencyCode || authoritative.currency_code;
     const currencyOk = currency ? PREMIUM_CURRENCIES.indexOf(String(currency).toUpperCase()) !== -1 : true;
     if (!currency) {
