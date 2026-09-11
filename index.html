@@ -780,6 +780,12 @@
     box-shadow:var(--shadow-soft);
     transition:transform .14s ease, filter .15s ease;
   }
+  /* La carte session du jour ne porte pas de marge basse (l'élément suivant
+     apporte la sienne), mais .account-card n'a qu'une marge basse : les deux
+     se retrouvaient collées. Règle ciblée sur ce seul enchaînement, pour ne
+     pas doubler l'espacement là où .account-card suit déjà une carte qui a
+     sa marge basse (écran Progression). */
+  .daily-card + .account-card{margin-top:14px;}
   .daily-card:hover{filter:brightness(1.03);}
   .daily-card:active{transform:scale(0.99);}
   .daily-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
