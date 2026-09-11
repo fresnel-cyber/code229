@@ -4,7 +4,7 @@
 // page aux deux endroits d'un coup. Garder en phase avec la petite copie
 // dupliquée côté client dans index.html (ROUTE_META) qui met à jour
 // document.title lors d'une navigation en SPA sans recharger la page.
-const SITE_URL = 'https://code229.online';
+const SITE_URL = 'https://www.code229.online';
 
 const ROUTES = {
   '/': {
