@@ -8,6 +8,16 @@
 
 const PREMIUM_AMOUNT = 1100;
 const PREMIUM_CURRENCY = 'XOF';
+
+// Devises dans lesquelles 1100 est le bon prix.
+//
+// KPay ne convertit RIEN : le montant envoyé à l'initiation est interprété
+// dans la devise du payeur, elle-même déduite du numéro de téléphone saisi
+// sur la page hébergée (on ne peut donc pas l'imposer à l'initiation).
+// 1100 vaut bien 1100 en XOF et en XAF, les deux francs CFA étant à parité
+// stricte — mais 1100 CDF valent environ un quart du prix. Toute devise hors
+// de cette liste doit être refusée, sans quoi l'abonnement serait bradé.
+const PREMIUM_CURRENCIES = ['XOF', 'XAF'];
 const PREMIUM_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
@@ -43,4 +53,4 @@ async function activatePremium(db, paymentRef, uid) {
   return { newExpiry: newExpiry, extended: !!isCurrentlyActive };
 }
 
-module.exports = { PREMIUM_AMOUNT, PREMIUM_CURRENCY, PREMIUM_DURATION_MS, activatePremium };
+module.exports = { PREMIUM_AMOUNT, PREMIUM_CURRENCY, PREMIUM_CURRENCIES, PREMIUM_DURATION_MS, activatePremium };

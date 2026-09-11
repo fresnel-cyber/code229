@@ -4,7 +4,7 @@
 // payments/{kpay_<paymentId>} est l'identifiant KPay lui-même.
 const { db } = require('./_lib/firebaseAdmin');
 const { getPayment, verifyWebhookSignature } = require('./_lib/kpay');
-const { PREMIUM_AMOUNT, activatePremium } = require('./_lib/premium');
+const { PREMIUM_AMOUNT, PREMIUM_CURRENCIES, activatePremium } = require('./_lib/premium');
 
 function readRawBody(req) {
   return new Promise(function (resolve, reject) {
@@ -79,12 +79,36 @@ async function handler(req, res) {
     const authoritative = await getPayment(event.paymentId);
     const statusOk = String(authoritative.status).toUpperCase() === 'COMPLETED';
     const amountOk = Number(authoritative.amount) === PREMIUM_AMOUNT;
-    console.log('[kpay] paiement relu chez KPay:', event.paymentId,
-      '| statut:', authoritative.status, '| montant:', authoritative.amount);
 
-    if (!statusOk || !amountOk) {
+    // Contrôle de devise, indispensable parce que KPay ne convertit rien :
+    // le montant vaut 1100 unités de la devise du payeur, déduite du numéro
+    // qu'il saisit. 1100 CDF ne sont pas 1100 XOF. La liste blanche
+    // d'opérateurs de l'application est la première protection ; celle-ci est
+    // la seconde, au cas où un pays serait rouvert sans y repenser.
+    //
+    // Devise absente de la réponse : on ACCEPTE en le signalant bruyamment.
+    // Le nom exact du champ n'a pas pu être confirmé sur la documentation
+    // publique, et refuser sur un champ peut-être mal nommé bloquerait tous
+    // les paiements légitimes — un échec bien pire que le risque couvert,
+    // déjà tenu par la liste blanche. Si ce message apparaît en production,
+    // c'est le nom du champ qu'il faut corriger ici.
+    const currency = authoritative.currency || authoritative.currencyCode || authoritative.currency_code;
+    const currencyOk = currency ? PREMIUM_CURRENCIES.indexOf(String(currency).toUpperCase()) !== -1 : true;
+    if (!currency) {
+      console.error('[kpay] ATTENTION : aucune devise dans la réponse KPay, contrôle impossible. Champs reçus =',
+        Object.keys(authoritative).join(','));
+    }
+
+    console.log('[kpay] paiement relu chez KPay:', event.paymentId,
+      '| statut:', authoritative.status, '| montant:', authoritative.amount, '| devise:', currency || '(absente)');
+
+    if (!statusOk || !amountOk || !currencyOk) {
       console.error('[kpay] paiement NON CONFORME, aucune activation:', event.paymentId,
-        JSON.stringify({ statut: authoritative.status, montant_attendu: PREMIUM_AMOUNT, montant_recu: authoritative.amount }));
+        JSON.stringify({
+          statut: authoritative.status,
+          montant_attendu: PREMIUM_AMOUNT, montant_recu: authoritative.amount,
+          devises_acceptees: PREMIUM_CURRENCIES, devise_recue: currency || null
+        }));
       res.status(200).json({ received: true, error: 'Paiement non conforme, ignoré.' });
       return;
     }

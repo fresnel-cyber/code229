@@ -1,22 +1,28 @@
-// Fine couche au-dessus de l'API KPay (mode TEST uniquement pour l'instant).
+// Fine couche au-dessus de l'API KPay.
+//
+// Le mode TEST et le mode LIVE partagent exactement ce code : seules les
+// clés changent (variables d'environnement). Rien ici ne doit dépendre de
+// l'environnement, sous peine de tester un chemin différent de celui qui
+// encaissera réellement.
 // Pas de SDK officiel : deux appels HTTP suffisent, et `fetch` est natif sur
 // le runtime Node de Vercel — inutile d'ajouter une dépendance.
 const crypto = require('crypto');
 
 /* ─────────────────────────────────────────────────────────────────────────
-   POINTS À CONFIRMER SUR LE TABLEAU DE BORD KPAY
+   CONTRAT KPAY — confirmé par un paiement de test réel qui a abouti.
 
-   Le contrat d'initiation n'a pas pu être vérifié dans la documentation
-   publique (le site documente aussi une base api.k-pay.app avec un en-tête
-   Authorization: Bearer). Ces trois éléments sont donc regroupés ici pour
-   être corrigés en un seul endroit si le premier test réel les dément :
+   Base + chemin d'initiation, en-têtes X-API-Key / X-Secret-Key et noms des
+   champs de réponse (gatewayUrl / paymentId) sont donc validés, pas déduits.
 
-     1. KPAY_BASE_URL + INIT_PATH  → l'URL exacte d'initiation
-     2. les en-têtes d'authentification ci-dessous
-     3. les noms des champs de réponse (gatewayUrl / paymentId)
+   KPAY_BASE_URL reste surchargeable par variable d'environnement : si KPay
+   déplaçait un jour son API, la correction se fait sans redéployer de code.
 
-   La base est surchargeable par variable d'environnement pour permettre de
-   corriger sans redéployer de code.
+   Contrainte structurante du mode GATEWAY : l'initiation n'accepte AUCUNE
+   devise. KPay la déduit du numéro de téléphone que le client saisit sur la
+   page hébergée, et ne convertit rien — `amount` vaut donc 1100 unités de SA
+   devise. C'est la liste blanche d'opérateurs de l'application (tableau de
+   bord KPay) qui restreint les pays autorisés, doublée du contrôle de devise
+   du webhook. Voir PREMIUM_CURRENCIES dans _lib/premium.js.
    ───────────────────────────────────────────────────────────────────────── */
 const KPAY_BASE_URL = process.env.KPAY_BASE_URL || 'https://admin.kpay.site';
 const INIT_PATH = '/api/v1/payments/init';
