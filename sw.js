@@ -39,7 +39,13 @@ self.addEventListener('fetch', function(event){
   if(req.method !== 'GET' || url.origin !== self.location.origin) return;
 
   var isAppShell = url.pathname === '/' || url.pathname === '/index.html';
-  var isStaticAsset = url.pathname.indexOf('/img/') === 0 || url.pathname === '/manifest.json';
+  // /js/ suit la même stratégie que les images : mis en cache à la première
+  // visite, servi depuis le cache ensuite. Sans ça, un module chargé par
+  // balise <script> ne serait pas disponible hors ligne et l'app se
+  // retrouverait amputée d'une fonctionnalité dès la première coupure réseau.
+  var isStaticAsset = url.pathname.indexOf('/img/') === 0 ||
+                      url.pathname.indexOf('/js/') === 0 ||
+                      url.pathname === '/manifest.json';
 
   if(isAppShell){
     event.respondWith(
