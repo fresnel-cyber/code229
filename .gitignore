@@ -3,3 +3,6 @@ node_modules/
 .env.local
 .vercel
 .vscode/
+
+# Images Instagram générées par tools/instagram-post.py (regénérables)
+tools/posts/
