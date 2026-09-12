@@ -814,6 +814,8 @@
   }
   .quota-chip-empty svg{color:var(--yellow);}
   .premium-unsecured{border-color:rgba(240,186,31,0.3); background:rgba(240,186,31,var(--tint-bg));}
+  .paywall-hint{display:flex; align-items:flex-start; gap:7px; text-align:left;}
+  .paywall-hint svg{flex-shrink:0; margin-top:2px;}
   .paywall-secure-note{
     display:flex; align-items:flex-start; gap:8px; margin:16px 0 10px;
     font-size:12px; line-height:1.45; color:var(--chalk-dim);
@@ -1908,7 +1910,7 @@ var TIKTOK_PIXEL_ID = '';
 
   /* ---------------- Statut Premium ----------------
      Source de vérité = Firestore (subscriptions/{uid}), écrit uniquement par
-     le webhook serveur (api/fedapay-webhook.js). Le client se contente
+     le webhook serveur du prestataire actif. Le client se contente
      d'écouter en temps réel — jamais d'écriture directe, jamais de confiance
      dans un simple flag local. `isPremiumActive()` recalcule toujours sur la
      date d'expiration réelle plutôt que sur le seul champ `status`. */
@@ -3746,7 +3748,18 @@ var TIKTOK_PIXEL_ID = '';
     });
     html += '</ul>';
     html += '<button class="btn btn-primary btn-block" data-action="start-checkout">'+icon('bolt',17)+' Débloquer pendant 30 jours</button>';
-    html += '<p class="paywall-note">Paiement sécurisé via FedaPay — Mobile Money, carte bancaire…</p>';
+    // Volontairement SANS nom de prestataire : celui-ci se change par simple
+    // variable d'environnement (PAYMENT_PROVIDER), et une mention codée en dur
+    // dans le frontend devient fausse sans que personne le remarque — ce qui
+    // est exactement arrivé quand FedaPay a été remplacé par KPay. Le client
+    // reconnaît de toute façon son opérateur, pas le processeur de paiement.
+    html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
+    // La page hébergée du prestataire affiche un bouton de validation au style
+    // peu contrasté, que beaucoup prennent pour un bouton désactivé : ils
+    // remplissent tout, attendent qu'il « s'active », et la session expire au
+    // bout de 30 minutes. On prévient donc ici, faute de pouvoir corriger une
+    // page qui ne nous appartient pas. À retirer si le prestataire la corrige.
+    html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
     html += '</div>';
     // Déclencheur nº3 : juste avant de payer. Recommandé, jamais obligatoire —
     // on peut payer sans compte, l'accès sera simplement lié à cet appareil.
@@ -3770,8 +3783,9 @@ var TIKTOK_PIXEL_ID = '';
   }
 
   /* Ne fait jamais confiance à cet appel pour activer Premium : il ne fait
-     que démarrer le paiement. C'est le webhook serveur (api/fedapay-webhook.js),
-     après re-vérification auprès de FedaPay, qui écrit dans Firestore — et
+     que démarrer le paiement. C'est le webhook serveur du prestataire actif
+     (api/kpay-webhook.js ou api/fedapay-webhook.js selon PAYMENT_PROVIDER),
+     après re-vérification auprès de lui, qui écrit dans Firestore — et
      c'est l'écoute temps réel (watchPremiumStatus) qui débloquera l'UI. */
   function startCheckout(){
     var btn = document.querySelector('[data-action="start-checkout"]');
@@ -5300,7 +5314,7 @@ var TIKTOK_PIXEL_ID = '';
     practice:'entraînement'
   };
 
-  /* Retour depuis le checkout FedaPay (callback_url=?payment=return) : on ne
+  /* Retour depuis le checkout du prestataire (?payment=return) : on ne
      fait JAMAIS confiance à cette redirection pour activer Premium — on se
      contente d'attendre que l'écoute temps réel (watchPremiumStatus) reflète
      ce que le webhook serveur aura écrit, avec un message de repli si ça
