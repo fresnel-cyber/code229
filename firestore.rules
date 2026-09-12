@@ -28,6 +28,22 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Codes promo : totalement invisibles au client. Les lire permettrait de
+    // récupérer la liste complète des codes valides ; les écrire permettrait
+    // de s'en créer un. Seul /api/redeem-code (Admin SDK) y touche.
+    match /promo_codes/{code} {
+      allow read, write: if false;
+    }
+
+    // Traces d'utilisation des codes (une par couple code+compte) et
+    // compteurs anti-force-brute : purement serveur, comme ci-dessus.
+    match /promo_redemptions/{redemptionId} {
+      allow read, write: if false;
+    }
+    match /promo_attempts/{userId} {
+      allow read, write: if false;
+    }
+
     // Funnel marketing : le client peut UNIQUEMENT créer ses propres
     // événements (jamais les relire, modifier ou supprimer) — suffisant pour
     // compter le funnel sans exposer les données d'autres utilisateurs.

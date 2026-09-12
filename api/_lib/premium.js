@@ -21,6 +21,26 @@ const PREMIUM_CURRENCIES = ['XOF', 'XAF'];
 const PREMIUM_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Calcule la nouvelle date d'expiration d'un abonnement.
+ *
+ * Isolé ici parce que DEUX chemins activent désormais Premium — le paiement
+ * (webhooks) et les codes promo (api/redeem-code.js) — et que la règle « on
+ * prolonge, on n'écrase jamais » doit rester définie à un seul endroit.
+ *
+ * @param current  Document `subscriptions/{uid}` existant, ou null.
+ * @param now      Horodatage de référence (ms).
+ * @param durationMs  Durée à ajouter ; PREMIUM_DURATION_MS (30 j) par défaut.
+ */
+function computeNewExpiry(current, now, durationMs) {
+  const isCurrentlyActive = current && current.status === 'active' && current.premium_expires_at > now;
+  const startBase = isCurrentlyActive ? current.premium_expires_at : now;
+  return {
+    newExpiry: startBase + (durationMs || PREMIUM_DURATION_MS),
+    extended: !!isCurrentlyActive
+  };
+}
+
+/**
  * Marque le paiement comme approuvé et (pro)longe l'abonnement de 30 jours.
  *
  * Un abonnement déjà actif est PROLONGÉ à partir de sa date d'expiration
@@ -35,10 +55,9 @@ async function activatePremium(db, paymentRef, uid) {
   const subRef = db.collection('subscriptions').doc(uid);
   const subSnap = await subRef.get();
   const current = subSnap.exists ? subSnap.data() : null;
-  const isCurrentlyActive = current && current.status === 'active' && current.premium_expires_at > now;
-
-  const startBase = isCurrentlyActive ? current.premium_expires_at : now;
-  const newExpiry = startBase + PREMIUM_DURATION_MS;
+  const expiry = computeNewExpiry(current, now, PREMIUM_DURATION_MS);
+  const newExpiry = expiry.newExpiry;
+  const isCurrentlyActive = expiry.extended;
 
   await db.runTransaction(async function (t) {
     t.update(paymentRef, { status: 'approved', confirmed_at: now });
@@ -53,4 +72,4 @@ async function activatePremium(db, paymentRef, uid) {
   return { newExpiry: newExpiry, extended: !!isCurrentlyActive };
 }
 
-module.exports = { PREMIUM_AMOUNT, PREMIUM_CURRENCY, PREMIUM_CURRENCIES, PREMIUM_DURATION_MS, activatePremium };
+module.exports = { PREMIUM_AMOUNT, PREMIUM_CURRENCY, PREMIUM_CURRENCIES, PREMIUM_DURATION_MS, computeNewExpiry, activatePremium };
