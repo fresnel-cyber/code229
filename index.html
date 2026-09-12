@@ -487,6 +487,9 @@
   .chip:hover{border-color:rgba(var(--on-surface-rgb),0.22); color:var(--chalk);}
   .chip:active{transform:scale(0.96);}
   .chip.active{background:var(--yellow-on-ink); color:var(--ink-on-accent); border-color:var(--yellow-on-ink); font-weight:700;}
+  .chip-locked{gap:6px; color:var(--chalk-faint); border-style:dashed;}
+  .chip-locked svg{flex-shrink:0;}
+  .setup-note{margin:12px 0 0; font-size:12.5px; color:var(--chalk-dim); line-height:1.45;}
   .mode-toggle{display:flex; background:var(--asphalt-3); border-radius:100px; padding:4px; margin-bottom:16px;}
   .mode-toggle button{flex:1; border:none; background:none; color:var(--chalk-dim); padding:9px; border-radius:100px; font-family:var(--font-display); font-size:12.5px; letter-spacing:0.3px; cursor:pointer; text-transform:uppercase;}
   .mode-toggle button.active{background:var(--yellow-on-ink); color:var(--ink-on-accent); font-weight:700;}
@@ -2285,6 +2288,14 @@ var TIKTOK_PIXEL_ID = '';
      cours de route : on ne coupe jamais quelqu'un au milieu de ses questions. */
   var FREE_SERIES_FIRST_DAY = 3;
   var FREE_SERIES_PER_DAY = 1;
+  /* Une série gratuite est une série de taille normale, pas le programme
+     entier : sans ce plafond, « Toutes les questions » + « Toutes (841) »
+     donnait tout le contenu pour un seul crédit. Appliqué à l'affichage ET
+     au lancement, sinon un state.pendingCount bricolé passe quand même. */
+  var FREE_MAX_SERIES_LEN = 20;
+  function maxSeriesLen(){
+    return isPremiumActive() ? Infinity : FREE_MAX_SERIES_LEN;
+  }
   function freeQuotaForToday(){
     var today = dayStr(new Date());
     if(!progress.firstUseDate || progress.firstUseDate === today) return FREE_SERIES_FIRST_DAY;
@@ -2647,6 +2658,9 @@ var TIKTOK_PIXEL_ID = '';
         break;
       case 'bolt':
         body = '<path d="M26 5 L11 27 H23 L21 43 L37 20 H25 Z"/>';
+        break;
+      case 'lock':
+        body = '<rect x="10" y="21" width="28" height="21" rx="3"/><path d="M17 21v-6a7 7 0 0 1 14 0v6"/>';
         break;
       case 'help':
         body = '<circle cx="24" cy="24" r="18"/><path d="M18 19a6 6 0 0 1 11 3c0 4-5 4-5 8"/><circle cx="24" cy="35" r="1.6" fill="currentColor" stroke="none"/>';
@@ -3234,7 +3248,7 @@ var TIKTOK_PIXEL_ID = '';
       var base = opts.chapter && opts.chapter !== 'ALL'
         ? QUESTIONS.filter(function(q){ return q.chapter === opts.chapter; })
         : QUESTIONS;
-      pool = sample(base, Math.min(opts.count || 20, base.length));
+      pool = sample(base, Math.min(opts.count || 20, base.length, maxSeriesLen()));
     }
     return newSession(mode, pool, {chapterScope: opts.chapter || 'ALL'});
   }
@@ -4172,17 +4186,27 @@ var TIKTOK_PIXEL_ID = '';
     var chap = state.pendingChapter;
     var meta = CHAPTER_META.filter(function(c){return c.id===chap;})[0];
     var max = chap === 'ALL' ? TOTAL_QUESTIONS : (meta ? meta.count : TOTAL_QUESTIONS);
-    var count = state.pendingCount || Math.min(20, max);
+    var cap = Math.min(max, maxSeriesLen());
+    var count = Math.min(state.pendingCount || Math.min(20, max), cap);
     var html = '<div class="view">';
     html += '<div class="quiz-topbar"><button class="icon-btn" data-nav="chapters" aria-label="Retour aux chapitres">'+icon('back',18)+'</button><div class="quiz-meta"><h2 style="margin:0;font-family:var(--font-display);font-size:19px;">'+(meta?meta.title:'Toutes les questions')+'</h2></div></div>';
     html += '<div class="setup-card">';
     html += '<div class="quiz-tag" style="margin-bottom:10px;">Nombre de questions</div>';
     html += '<div class="chip-row" id="count-chips">';
     [10,20,50].forEach(function(n){
-      if(n <= max) html += '<button class="chip'+(count===n?' active':'')+'" data-count="'+n+'">'+n+'</button>';
+      if(n <= cap) html += '<button class="chip'+(count===n?' active':'')+'" data-count="'+n+'">'+n+'</button>';
     });
-    html += '<button class="chip'+(count===max?' active':'')+'" data-count="'+max+'">Toutes ('+max+')</button>';
+    // Sans Premium, « Toutes » n'est pas retiré mais montré verrouillé : mieux
+    // vaut une porte visible qui donne envie qu'une option qui disparaît.
+    if(cap >= max){
+      html += '<button class="chip'+(count===max?' active':'')+'" data-count="'+max+'">Toutes ('+max+')</button>';
+    } else {
+      html += '<button class="chip chip-locked" data-nav="paywall">'+icon('lock',13)+' Toutes ('+max+')</button>';
+    }
     html += '</div>';
+    if(cap < max){
+      html += '<p class="setup-note">Les séries gratuites font '+cap+' questions. Passe en Premium pour enchaîner tout le programme d\'un coup.</p>';
+    }
     html += '<button class="btn btn-primary btn-block" style="margin-top:20px;" data-action="launch-practice">'+icon('target',17)+' Commencer</button>';
     html += '</div>';
     html += '</div>';
@@ -5232,7 +5256,7 @@ var TIKTOK_PIXEL_ID = '';
       var chap = state.pendingChapter;
       var meta = CHAPTER_META.filter(function(c){return c.id===chap;})[0];
       var max = chap === 'ALL' ? TOTAL_QUESTIONS : (meta?meta.count:TOTAL_QUESTIONS);
-      var count = state.pendingCount || Math.min(20,max);
+      var count = Math.min(state.pendingCount || Math.min(20,max), max, maxSeriesLen());
       state.session = buildSession('practice', {chapter:chap, count:count});
       goto('quiz');
     });
