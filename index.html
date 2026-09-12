@@ -3761,6 +3761,10 @@ var TIKTOK_PIXEL_ID = '';
 
   var PAYWALL_CTA_DEFAULT = 'Débloquer pendant 30 jours';
   function bindPaywallEvents(){
+    // Indispensable : le paywall affiche aussi « Sécuriser mon accès avant de
+    // payer », dont le bouton sign-in-google est branché par bindCommonActions.
+    // Sans cet appel, ce bouton n'avait aucun écouteur et ne faisait rien.
+    bindCommonActions(document);
     var cta = document.querySelector('[data-action="start-checkout"]');
     if(cta) cta.addEventListener('click', startCheckout);
   }
@@ -4986,9 +4990,22 @@ var TIKTOK_PIXEL_ID = '';
       'sign-in-google': signInWithGoogle,
       'toggle-panfr': function(){ state.panfrOpen = !state.panfrOpen; render(); }
     };
+    /* querySelectorAll, pas querySelector : une même action peut apparaître
+       sur plusieurs boutons d'un même écran (la proposition de connexion
+       existe en carte ET en bandeau). Au singulier, seul le premier
+       réagissait et les autres restaient inertes au clic.
+
+       Le marqueur dataset.bound garde l'idempotence : c'est un double
+       addEventListener sur le MÊME bouton qui avait provoqué deux appels à
+       signInWithGoogle() par clic, donc deux popups, dont Firefox bloquait
+       la seconde. Poser le garde ici rend ce bug structurellement
+       impossible, quel que soit le nombre d'appels. */
     Object.keys(map).forEach(function(act){
-      var b = scope.querySelector('[data-action="'+act+'"]');
-      if(b) b.addEventListener('click', map[act]);
+      scope.querySelectorAll('[data-action="'+act+'"]').forEach(function(b){
+        if(b.dataset.bound === act) return;
+        b.dataset.bound = act;
+        b.addEventListener('click', map[act]);
+      });
     });
     scope.querySelectorAll('[data-action="open-fiche"]').forEach(function(b){
       b.addEventListener('click', function(){ openFiche(b.getAttribute('data-chapter')); });
