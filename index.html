@@ -2,7 +2,12 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<!-- Le zoom utilisateur reste AUTORISÉ : maximum-scale=1.0 et user-scalable=no
+     empêchaient d'agrandir la page, ce qui exclut les personnes malvoyantes
+     d'une app qu'on lit sur un petit écran (WCAG 1.4.4). Ces attributs étaient
+     là par réflexe anti-zoom-au-double-tap ; les navigateurs modernes ne le
+     déclenchent plus sur une page dont le viewport fait la largeur de l'écran. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>CODE 229 — Révise le code de la route (Bénin)</title>
 <script>
 /* Applique les préférences d'affichage (thème, taille de texte) avant même le

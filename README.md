@@ -117,6 +117,23 @@ aussi à la main après toute modification des questions.
 
 ---
 
+## En-têtes HTTP
+
+Définis dans [`vercel.json`](vercel.json), appliqués à toutes les réponses.
+
+La **CSP est en `Content-Security-Policy-Report-Only`** : une politique trop
+stricte casse l'app en silence pour l'utilisateur, pas pour nous. Avant de la
+passer en `Content-Security-Policy` bloquante, ouvrir la console sur les
+parcours réels (accueil, quiz, fiches, connexion Google, paiement) et vérifier
+qu'aucune violation n'est signalée. Toute nouvelle origine externe (police,
+pixel, SDK) doit y être ajoutée, sinon elle sera bloquée le jour du passage.
+
+`/__/auth/*` est volontairement **exclue** des en-têtes de framing : cette
+route est réécrite vers firebaseapp.com et chargée dans une iframe de notre
+propre page. Lui appliquer `X-Frame-Options: DENY` casse la connexion Google.
+
+---
+
 ## Développement local
 
 L'app est un fichier statique : l'ouvrir directement dans un navigateur
