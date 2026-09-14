@@ -7,9 +7,9 @@ sur WhatsApp, Facebook ou X.
 Reconstruit l'image à partir de img/brand/logo-source.jpeg, pour qu'un changement
 de logo ne laisse pas l'aperçu social en arrière.
 
-Police : Inter, celle du corps de texte de l'app. Le titre de l'app utilise
-Oswald, qui n'est pas installé localement ; Inter Display Black est le repli le
-plus proche et reste dans la charte.
+Polices : Oswald pour le titre et Inter pour le reste, exactement comme l'app
+(--font-display et --font-body). Si Oswald est absent du système, le titre
+retombe sur Inter Display Black — proche, mais moins étroit.
 """
 
 import os
@@ -27,6 +27,12 @@ YELLOW = (0xF0, 0xBA, 0x1F)
 
 LARGEUR, HAUTEUR = 1200, 630
 INTER = '/usr/share/fonts/opentype/inter/%s.otf'
+# Oswald est une police variable : un seul fichier porte toutes les graisses,
+# d'où le set_variation_by_name plutôt qu'un fichier par graisse.
+OSWALD = [
+    os.path.expanduser('~/.local/share/fonts/Oswald.ttf'),
+    '/usr/share/fonts/truetype/oswald/Oswald[wght].ttf',
+]
 
 
 def police(nom, taille):
@@ -34,6 +40,20 @@ def police(nom, taille):
     if not os.path.exists(chemin):
         sys.exit('Police introuvable : %s\nInstalle Inter (paquet fonts-inter).' % chemin)
     return ImageFont.truetype(chemin, taille)
+
+
+def police_titre(taille):
+    """Oswald si le système l'a, Inter Display Black sinon."""
+    for chemin in OSWALD:
+        if os.path.exists(chemin):
+            f = ImageFont.truetype(chemin, taille)
+            try:
+                f.set_variation_by_name('Bold')
+            except Exception:
+                pass            # FreeType trop ancien pour les polices variables
+            return f
+    print('Oswald introuvable, repli sur Inter Display Black.', file=sys.stderr)
+    return police('InterDisplay-Black', taille)
 
 
 def mark_propre():
@@ -84,14 +104,24 @@ def main():
     img.paste(mark, (marge, (HAUTEUR - mark.size[1]) // 2))
 
     x = marge + cible + 70
-    d.text((x, 178), 'CODE 229', font=police('InterDisplay-Black', 82), fill=CHALK)
-    d.text((x, 278), 'Révise le code de la route', font=police('Inter-SemiBold', 34), fill=CHALK)
-    d.text((x, 322), 'béninois', font=police('Inter-SemiBold', 34), fill=YELLOW)
+    # Oswald et Inter n'ont pas les mêmes métriques verticales : on empile les
+    # lignes à partir de leur boîte réelle plutôt que de coordonnées en dur,
+    # sinon le titre vient toucher le sous-titre au moindre changement de police.
+    titre = police_titre(96)
+    y = 168
+    d.text((x, y), 'CODE 229', font=titre, fill=CHALK)
+    y += titre.getbbox('CODE 229')[3] + 26
 
-    d.text((x, 400), '841 questions du Manuel du candidat DGTT',
-           font=police('Inter-Regular', 22), fill=CHALK_DIM)
-    d.text((x, 432), 'Diagnostic gratuit · Répétition espacée · Examen blanc',
-           font=police('Inter-Regular', 22), fill=CHALK_DIM)
+    sous = police('Inter-SemiBold', 34)
+    d.text((x, y), 'Révise le code de la route', font=sous, fill=CHALK)
+    y += 44
+    d.text((x, y), 'béninois', font=sous, fill=YELLOW)
+
+    y += 70
+    detail = police('Inter-Regular', 22)
+    d.text((x, y), '841 questions du Manuel du candidat DGTT', font=detail, fill=CHALK_DIM)
+    d.text((x, y + 32), 'Diagnostic gratuit · Répétition espacée · Examen blanc',
+           font=detail, fill=CHALK_DIM)
 
     dest = os.path.join(RACINE, 'img', 'og-image.jpg')
     # quality=90 : le fichier reste sous les 150 Ko que les aperçus tolèrent

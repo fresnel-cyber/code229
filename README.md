@@ -119,6 +119,14 @@ python3 tools/og-image.py
 Écrit `img/og-image.jpg` (1200 × 630). À relancer après tout changement de logo,
 sinon l'aperçu social reste sur l'ancienne identité.
 
+Le titre utilise Oswald, comme `--font-display` dans l'app. Si la police manque,
+le script le dit et retombe sur Inter Display Black. Pour l'installer sans
+droits administrateur :
+
+```bash
+mkdir -p ~/.local/share/fonts && curl -sSL -o ~/.local/share/fonts/Oswald.ttf "https://github.com/google/fonts/raw/main/ofl/oswald/Oswald%5Bwght%5D.ttf" && fc-cache -f ~/.local/share/fonts
+```
+
 ## Questions
 
 ### Vérifier l'intégrité des 841 questions
