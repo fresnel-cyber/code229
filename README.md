@@ -102,6 +102,23 @@ sont ajoutées, de la couleur des bords de l'image, ce qui les rend invisibles.
 
 ---
 
+## Identité visuelle
+
+Le logo source vit dans `img/brand/logo-source.jpeg`. Les icônes de l'app
+(`img/icon-*.png`, `img/favicon-*.png`) en sont dérivées : mark détouré, rabattu
+sur les trois couleurs de la charte, et recadré pour remplir son cadre.
+
+### Régénérer l'aperçu de partage
+
+L'image affichée quand on partage un lien CODE 229 sur WhatsApp, Facebook ou X :
+
+```bash
+python3 tools/og-image.py
+```
+
+Écrit `img/og-image.jpg` (1200 × 630). À relancer après tout changement de logo,
+sinon l'aperçu social reste sur l'ancienne identité.
+
 ## Questions
 
 ### Vérifier l'intégrité des 841 questions
