@@ -1849,6 +1849,58 @@ var TIKTOK_PIXEL_ID = '';
      sémantique que `linkWithRedirect` — il rattache Google à l'utilisateur
      anonyme COURANT, donc l'UID ne change pas et l'abonnement Premium
      attaché à subscriptions/{uid} reste valable. */
+  /* Navigateurs intégrés (WhatsApp, Facebook, Instagram, TikTok...).
+
+     AUCUNE des deux voies de connexion Google n'y fonctionne : la popup est
+     refusée, et la redirection casse parce que ces vues web perdent le
+     sessionStorage pendant la navigation complète. Le handler Firebase affiche
+     alors sa propre page d'erreur (« missing initial state ») et l'app ne
+     reprend jamais la main — l'utilisateur est bloqué hors de l'app, sur un
+     écran blanc qu'on ne contrôle pas.
+
+     C'est le cas le plus courant ici : la quasi-totalité du trafic arrive par
+     un lien partagé sur WhatsApp. Il faut donc détecter l'environnement AVANT
+     de proposer quoi que ce soit, jamais après l'échec. */
+  function navigateurIntegre(){
+    var ua = navigator.userAgent || '';
+    // Applications qui s'annoncent explicitement.
+    if(/FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|TikTok|Snapchat|WhatsApp/i.test(ua)) return true;
+    // WebView Android : jeton « wv » dans l'UA.
+    if(/Android/.test(ua) && /;\s*wv\)/.test(ua)) return true;
+    // iOS : une WKWebView intégrée n'ajoute pas le suffixe « Safari/… » que
+    // Safari lui-même pose toujours. C'est le seul signal fiable, WhatsApp iOS
+    // ne mettant pas son nom dans l'UA.
+    if(/iPhone|iPad|iPod/.test(ua) && !/Safari\//.test(ua)) return true;
+    return false;
+  }
+
+  /* Tente de rouvrir l'app dans le vrai navigateur du téléphone. Aucun de ces
+     schémas n'est garanti : on les essaie, et l'écran garde de toute façon le
+     bouton « copier le lien » et la marche à suivre manuelle. */
+  function ouvrirDansNavigateur(){
+    var url = 'https://www.code229.online/';
+    var ua = navigator.userAgent || '';
+    try{
+      if(/Android/.test(ua)){
+        window.location.href = 'intent://www.code229.online/#Intent;scheme=https;end';
+      } else {
+        window.location.href = 'x-safari-https://www.code229.online/';
+      }
+    }catch(e){ /* schéma refusé : la copie du lien reste disponible */ }
+    return url;
+  }
+
+  function copierLien(){
+    var url = 'https://www.code229.online/';
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(url).then(function(){
+        toast('Lien copié — ouvre ton navigateur et colle-le.');
+      }).catch(function(){ toast('Copie le lien : ' + url); });
+      return;
+    }
+    toast('Copie le lien : ' + url);
+  }
+
   var POPUP_UNAVAILABLE = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
   var POPUP_ABANDONED = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
 
@@ -1878,6 +1930,14 @@ var TIKTOK_PIXEL_ID = '';
         return;
       }
       if(POPUP_UNAVAILABLE.indexOf(code) !== -1){
+        // La redirection est pire que l'échec ici : elle emmène l'utilisateur
+        // sur la page d'erreur du handler Firebase, hors de l'app.
+        if(navigateurIntegre()){
+          console.warn('[auth] navigateur intégré : ni popup ni redirection possibles');
+          state.authBloqueeIntegre = true;
+          render();
+          return;
+        }
         // Popup impossible (bloqué, ou PWA iOS en mode autonome) : on retombe
         // sur la redirection, qui fonctionne là où le stockage n'est pas
         // cloisonné. getRedirectResult() prendra le relais au retour.
@@ -3784,7 +3844,16 @@ var TIKTOK_PIXEL_ID = '';
        connexion n'est donc plus une suggestion sous le bouton — elle EST
        l'étape, et le paiement n'apparaît qu'ensuite. */
     var besoinCompte = CLOUD_ENABLED && !state.user;
-    if(besoinCompte){
+    // Dans un navigateur intégré, la connexion Google est IMPOSSIBLE (voir
+    // navigateurIntegre). Exiger un compte y reviendrait à interdire l'achat à
+    // la majorité du trafic, qui arrive par un lien WhatsApp.
+    var integre = besoinCompte && navigateurIntegre();
+    if(integre){
+      html += '<button class="btn btn-primary btn-block" data-action="ouvrir-navigateur">'+icon('arrowright',17)+' Ouvrir dans mon navigateur</button>';
+      html += '<button class="btn btn-ghost btn-block" data-action="copier-lien" style="margin-top:8px;">'+icon('check',16)+' Copier le lien</button>';
+      html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Tu es dans le navigateur de WhatsApp, où la connexion Google ne fonctionne pas. Ouvre code229.online dans Chrome ou Safari pour que ton accès te suive d\'un téléphone à l\'autre.</p>';
+      html += '<button class="promo-toggle" data-action="start-checkout" style="margin-top:4px;">Payer ici quand même</button>';
+    } else if(besoinCompte){
       html += '<button class="btn btn-primary btn-block account-google-btn" data-action="sign-in-google">' +
         googleLogoSvg() + '<span>Continuer avec Google</span></button>';
       html += '<p class="paywall-note">Une seconde, et le paiement s\'affiche juste après. Ton accès reste à toi même si tu changes de téléphone.</p>';
@@ -3796,13 +3865,13 @@ var TIKTOK_PIXEL_ID = '';
     // dans le frontend devient fausse sans que personne le remarque — ce qui
     // est exactement arrivé quand FedaPay a été remplacé par KPay. Le client
     // reconnaît de toute façon son opérateur, pas le processeur de paiement.
-    if(!besoinCompte) html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
+    if(!besoinCompte || integre) html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
     // La page hébergée du prestataire affiche un bouton de validation au style
     // peu contrasté, que beaucoup prennent pour un bouton désactivé : ils
     // remplissent tout, attendent qu'il « s'active », et la session expire au
     // bout de 30 minutes. On prévient donc ici, faute de pouvoir corriger une
     // page qui ne nous appartient pas. À retirer si le prestataire la corrige.
-    if(!besoinCompte) html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
+    if(!besoinCompte || integre) html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
     html += '</div>';
     // Code promo : replié par défaut. Un champ toujours visible pousse une
     // partie des visiteurs à partir chercher un code au lieu de payer — le
@@ -3822,7 +3891,9 @@ var TIKTOK_PIXEL_ID = '';
     // La carte de connexion vivait ici, SOUS le bouton de paiement, en
     // suggestion facultative — personne ne lit ce qui est sous l'action
     // principale. Elle est devenue le bouton principal lui-même.
-    if(besoinCompte){
+    if(integre){
+      html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Si tu paies ici, ton accès sera lié à ce téléphone uniquement. Tu pourras le rattacher à ton compte Google plus tard en ouvrant l\'app dans Chrome ou Safari.</span></div>';
+    } else if(besoinCompte){
       html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Un compte est nécessaire pour que ton abonnement te suive d\'un appareil à l\'autre. C\'est la seule chose qui protège ce que tu paies.</span></div>';
     }
     html += '<button class="diag-skip" data-nav="home">Plus tard, retour à l\'accueil</button>';
@@ -3910,7 +3981,7 @@ var TIKTOK_PIXEL_ID = '';
     }
     // Deuxième verrou, au cas où un appelant contournerait l'écran : un
     // abonnement attaché à un compte anonyme se perd au changement d'appareil.
-    if(!state.user){
+    if(!state.user && !navigateurIntegre()){
       toast('Connecte-toi d\'abord pour que ton abonnement te suive partout.');
       return;
     }
@@ -5133,6 +5204,8 @@ var TIKTOK_PIXEL_ID = '';
       // (résultats, paywall, bandeau Premium non sécurisé) : le binding vit
       // ici plutôt que dans le seul écran Progression.
       'sign-in-google': signInWithGoogle,
+      'ouvrir-navigateur': ouvrirDansNavigateur,
+      'copier-lien': copierLien,
       'toggle-panfr': function(){ state.panfrOpen = !state.panfrOpen; render(); }
     };
     /* querySelectorAll, pas querySelector : une même action peut apparaître
