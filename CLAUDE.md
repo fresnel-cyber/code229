@@ -49,6 +49,17 @@ l'API REST avec la clé web publique, et les données métier avec
 `scripts/diagnostic_paiement.js` (lecture seule). Ne pas conclure sur une
 lecture de code quand la réalité est mesurable.
 
+## Tests
+
+`npm test` couvre le webhook KPay (`tests/kpay-webhook.test.js`). Toute
+modification de `api/kpay-webhook.js`, `api/_lib/kpay.js` ou
+`api/_lib/premium.js` doit le laisser vert — et si elle ajoute un garde-fou,
+ajouter le test qui échoue quand on le retire.
+
+Les modules qui sortent du processus sont doublés via le cache de `require` :
+aucun test n'appelle KPay ni Firestore. Ne jamais faire dépendre un test d'une
+clé d'API ou du réseau.
+
 ## Conventions
 
 - **Commentaires en français**, comme le reste du code, et qui expliquent le

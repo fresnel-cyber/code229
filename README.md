@@ -17,6 +17,21 @@ validation des entrées, vérification des webhooks, secrets, règles Firestore.
 [CLAUDE.md](CLAUDE.md) renvoie les agents IA vers les bonnes sections selon les
 fichiers touchés.
 
+## Tests
+
+```bash
+npm test
+```
+
+Couvre le webhook KPay — la seule route qui active Premium, donc la seule dont
+une régression se paie en argent réel : signature absente / invalide / rejouée,
+webhook livré deux fois, montant ou devise non conformes, paiement inconnu,
+panne technique. Aucun réseau ni Firestore, les modules externes sont doublés.
+
+Ces tests ont été validés par mutation : désactiver la vérification de
+signature, le contrôle d'idempotence, celui du montant, celui de la devise ou
+celui du paiement inconnu fait échouer la suite à chaque fois.
+
 ## Codes promo
 
 Donner un accès Premium sans paiement (testeurs, proches, partenaires).

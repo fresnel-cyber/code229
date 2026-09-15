@@ -6,5 +6,8 @@
   "dependencies": {
     "firebase-admin": "^12.6.0",
     "fedapay": "^1.2.5"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
   }
 }
