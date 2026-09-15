@@ -1904,8 +1904,24 @@ var TIKTOK_PIXEL_ID = '';
   var POPUP_UNAVAILABLE = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'];
   var POPUP_ABANDONED = ['auth/popup-closed-by-user', 'auth/cancelled-popup-request'];
 
+  /* Explique la sortie et propose les deux gestes possibles. Appelé partout où
+     l'utilisateur demande à se connecter depuis un navigateur intégré — le
+     paywall n'est pas le seul chemin, « Profil » en est un autre. */
+  function proposerVraiNavigateur(){
+    customConfirm(
+      'La connexion Google ne fonctionne pas dans le navigateur de WhatsApp. Ouvre code229.online dans Chrome ou Safari : ta progression et ton accès y seront rattachés à ton compte.',
+      {okLabel:'Ouvrir mon navigateur', cancelLabel:'Copier le lien'}
+    ).then(function(ok){
+      if(ok) ouvrirDansNavigateur(); else copierLien();
+    });
+  }
+
   function signInWithGoogle(){
     if(!CLOUD_ENABLED){ toast('Connexion indisponible hors-ligne.'); return; }
+    // Vérifié AVANT toute tentative : dans une vue web intégrée, la popup est
+    // refusée et la redirection éjecte l'utilisateur sur la page d'erreur du
+    // handler Firebase. Mieux vaut expliquer que laisser échouer.
+    if(navigateurIntegre()){ proposerVraiNavigateur(); return; }
     var provider = new firebase.auth.GoogleAuthProvider();
     var user = auth.currentUser;
     var isAnon = !!(user && user.isAnonymous);
@@ -1934,8 +1950,7 @@ var TIKTOK_PIXEL_ID = '';
         // sur la page d'erreur du handler Firebase, hors de l'app.
         if(navigateurIntegre()){
           console.warn('[auth] navigateur intégré : ni popup ni redirection possibles');
-          state.authBloqueeIntegre = true;
-          render();
+          proposerVraiNavigateur();
           return;
         }
         // Popup impossible (bloqué, ou PWA iOS en mode autonome) : on retombe
@@ -4054,6 +4069,16 @@ var TIKTOK_PIXEL_ID = '';
      conditionné à une connexion. */
   function renderSaveProgressCard(lead, cta){
     if(!CLOUD_ENABLED || state.user) return '';
+    // Dans un navigateur intégré, afficher un bouton Google serait mentir : il
+    // ne peut pas aboutir. On propose directement le seul geste qui marche.
+    if(navigateurIntegre()){
+      return '<div class="account-card">' +
+        '<p class="account-pitch"><b>'+lead+'</b></p>' +
+        '<p class="paywall-note" style="text-align:left;margin:0 0 10px;">La connexion Google ne fonctionne pas dans le navigateur de WhatsApp. Ouvre code229.online dans Chrome ou Safari.</p>' +
+        '<button class="btn btn-primary btn-block" data-action="ouvrir-navigateur">'+icon('arrowright',17)+' Ouvrir dans mon navigateur</button>' +
+        '<button class="btn btn-ghost btn-block" data-action="copier-lien" style="margin-top:8px;">'+icon('check',16)+' Copier le lien</button>' +
+      '</div>';
+    }
     return '<div class="account-card">' +
       '<p class="account-pitch"><b>'+lead+'</b></p>' +
       '<button class="btn btn-primary btn-block account-google-btn" data-action="sign-in-google">' +
