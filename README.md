@@ -8,6 +8,15 @@ détaille ses options dans son propre en-tête (`head -25 <fichier>`).
 
 ---
 
+## Sécurité
+
+[SECURITY.md](SECURITY.md) définit les règles non négociables du projet —
+validation des entrées, vérification des webhooks, secrets, règles Firestore.
+À lire avant toute modification de `api/`, `firestore.rules` ou `vercel.json`.
+
+[CLAUDE.md](CLAUDE.md) renvoie les agents IA vers les bonnes sections selon les
+fichiers touchés.
+
 ## Codes promo
 
 Donner un accès Premium sans paiement (testeurs, proches, partenaires).
