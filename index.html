@@ -3859,15 +3859,17 @@ var TIKTOK_PIXEL_ID = '';
        connexion n'est donc plus une suggestion sous le bouton — elle EST
        l'étape, et le paiement n'apparaît qu'ensuite. */
     var besoinCompte = CLOUD_ENABLED && !state.user;
-    // Dans un navigateur intégré, la connexion Google est IMPOSSIBLE (voir
-    // navigateurIntegre). Exiger un compte y reviendrait à interdire l'achat à
-    // la majorité du trafic, qui arrive par un lien WhatsApp.
+    /* Un navigateur intégré (WhatsApp, Facebook...) ne peut pas mener la
+       connexion Google à son terme : on y montre la sortie vers le vrai
+       navigateur plutôt qu'un bouton condamné. Mais le compte reste
+       OBLIGATOIRE — on ne laisse jamais payer sans, quel que soit
+       l'environnement. Un accès qui ne survit pas au changement de téléphone
+       finit en remboursement ou en client perdu. */
     var integre = besoinCompte && navigateurIntegre();
     if(integre){
       html += '<button class="btn btn-primary btn-block" data-action="ouvrir-navigateur">'+icon('arrowright',17)+' Ouvrir dans mon navigateur</button>';
       html += '<button class="btn btn-ghost btn-block" data-action="copier-lien" style="margin-top:8px;">'+icon('check',16)+' Copier le lien</button>';
-      html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Tu es dans le navigateur de WhatsApp, où la connexion Google ne fonctionne pas. Ouvre code229.online dans Chrome ou Safari pour que ton accès te suive d\'un téléphone à l\'autre.</p>';
-      html += '<button class="promo-toggle" data-action="start-checkout" style="margin-top:4px;">Payer ici quand même</button>';
+      html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' La connexion ne fonctionne pas dans ce navigateur. Ouvre code229.online dans Chrome ou Safari pour créer ton compte et débloquer Premium.</p>';
     } else if(besoinCompte){
       html += '<button class="btn btn-primary btn-block account-google-btn" data-action="sign-in-google">' +
         googleLogoSvg() + '<span>Continuer avec Google</span></button>';
@@ -3880,13 +3882,13 @@ var TIKTOK_PIXEL_ID = '';
     // dans le frontend devient fausse sans que personne le remarque — ce qui
     // est exactement arrivé quand FedaPay a été remplacé par KPay. Le client
     // reconnaît de toute façon son opérateur, pas le processeur de paiement.
-    if(!besoinCompte || integre) html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
+    if(!besoinCompte) html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
     // La page hébergée du prestataire affiche un bouton de validation au style
     // peu contrasté, que beaucoup prennent pour un bouton désactivé : ils
     // remplissent tout, attendent qu'il « s'active », et la session expire au
     // bout de 30 minutes. On prévient donc ici, faute de pouvoir corriger une
     // page qui ne nous appartient pas. À retirer si le prestataire la corrige.
-    if(!besoinCompte || integre) html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
+    if(!besoinCompte) html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
     html += '</div>';
     // Code promo : replié par défaut. Un champ toujours visible pousse une
     // partie des visiteurs à partir chercher un code au lieu de payer — le
@@ -3906,9 +3908,7 @@ var TIKTOK_PIXEL_ID = '';
     // La carte de connexion vivait ici, SOUS le bouton de paiement, en
     // suggestion facultative — personne ne lit ce qui est sous l'action
     // principale. Elle est devenue le bouton principal lui-même.
-    if(integre){
-      html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Si tu paies ici, ton accès sera lié à ce téléphone uniquement. Tu pourras le rattacher à ton compte Google plus tard en ouvrant l\'app dans Chrome ou Safari.</span></div>';
-    } else if(besoinCompte){
+    if(besoinCompte){
       html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Un compte est nécessaire pour que ton abonnement te suive d\'un appareil à l\'autre. C\'est la seule chose qui protège ce que tu paies.</span></div>';
     }
     html += '<button class="diag-skip" data-nav="home">Plus tard, retour à l\'accueil</button>';
@@ -3996,7 +3996,9 @@ var TIKTOK_PIXEL_ID = '';
     }
     // Deuxième verrou, au cas où un appelant contournerait l'écran : un
     // abonnement attaché à un compte anonyme se perd au changement d'appareil.
-    if(!state.user && !navigateurIntegre()){
+    // Inconditionnel : aucun environnement ne justifie un abonnement rattaché à
+    // un compte anonyme, qui disparaît au premier changement d'appareil.
+    if(!state.user){
       toast('Connecte-toi d\'abord pour que ton abonnement te suive partout.');
       return;
     }
