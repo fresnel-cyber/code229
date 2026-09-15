@@ -3778,19 +3778,31 @@ var TIKTOK_PIXEL_ID = '';
       html += '<li>'+icon('check',14)+'<span>'+f+'</span></li>';
     });
     html += '</ul>';
-    html += '<button class="btn btn-primary btn-block" data-action="start-checkout">'+icon('bolt',17)+' Débloquer pendant 30 jours</button>';
+    /* Payer sans compte liait l'abonnement à un UID anonyme, donc au stockage
+       d'UN navigateur : un changement de téléphone et l'accès payé disparaît.
+       C'est arrivé à un client qui a repayé faute de retrouver le sien. La
+       connexion n'est donc plus une suggestion sous le bouton — elle EST
+       l'étape, et le paiement n'apparaît qu'ensuite. */
+    var besoinCompte = CLOUD_ENABLED && !state.user;
+    if(besoinCompte){
+      html += '<button class="btn btn-primary btn-block account-google-btn" data-action="sign-in-google">' +
+        googleLogoSvg() + '<span>Continuer avec Google</span></button>';
+      html += '<p class="paywall-note">Une seconde, et le paiement s\'affiche juste après. Ton accès reste à toi même si tu changes de téléphone.</p>';
+    } else {
+      html += '<button class="btn btn-primary btn-block" data-action="start-checkout">'+icon('bolt',17)+' Débloquer pendant 30 jours</button>';
+    }
     // Volontairement SANS nom de prestataire : celui-ci se change par simple
     // variable d'environnement (PAYMENT_PROVIDER), et une mention codée en dur
     // dans le frontend devient fausse sans que personne le remarque — ce qui
     // est exactement arrivé quand FedaPay a été remplacé par KPay. Le client
     // reconnaît de toute façon son opérateur, pas le processeur de paiement.
-    html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
+    if(!besoinCompte) html += '<p class="paywall-note">Paiement sécurisé par Mobile Money — MTN, Moov.</p>';
     // La page hébergée du prestataire affiche un bouton de validation au style
     // peu contrasté, que beaucoup prennent pour un bouton désactivé : ils
     // remplissent tout, attendent qu'il « s'active », et la session expire au
     // bout de 30 minutes. On prévient donc ici, faute de pouvoir corriger une
     // page qui ne nous appartient pas. À retirer si le prestataire la corrige.
-    html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
+    if(!besoinCompte) html += '<p class="paywall-note paywall-hint">'+icon('help',13)+' Sur la page suivante, saisis ton numéro puis appuie sur le bouton de paiement — même s\'il te paraît grisé, il fonctionne.</p>';
     html += '</div>';
     // Code promo : replié par défaut. Un champ toujours visible pousse une
     // partie des visiteurs à partir chercher un code au lieu de payer — le
@@ -3807,11 +3819,11 @@ var TIKTOK_PIXEL_ID = '';
     } else {
       html += '<button class="promo-toggle" data-action="open-promo">J\'ai un code d\'accès</button>';
     }
-    // Déclencheur nº3 : juste avant de payer. Recommandé, jamais obligatoire —
-    // on peut payer sans compte, l'accès sera simplement lié à cet appareil.
-    if(CLOUD_ENABLED && !state.user){
-      html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Connecte-toi avant de payer pour retrouver ton accès même en changeant de téléphone. Facultatif : tu peux payer sans compte.</span></div>';
-      html += renderSaveProgressCard('Sécuriser mon accès avant de payer', 'Continuer avec Google');
+    // La carte de connexion vivait ici, SOUS le bouton de paiement, en
+    // suggestion facultative — personne ne lit ce qui est sous l'action
+    // principale. Elle est devenue le bouton principal lui-même.
+    if(besoinCompte){
+      html += '<div class="paywall-secure-note">'+icon('help',13)+'<span>Un compte est nécessaire pour que ton abonnement te suive d\'un appareil à l\'autre. C\'est la seule chose qui protège ce que tu paies.</span></div>';
     }
     html += '<button class="diag-skip" data-nav="home">Plus tard, retour à l\'accueil</button>';
     html += '</div></div>';
@@ -3894,6 +3906,12 @@ var TIKTOK_PIXEL_ID = '';
     var btn = document.querySelector('[data-action="start-checkout"]');
     if(!CLOUD_ENABLED || !auth || !auth.currentUser){
       toast('Connexion indisponible, réessaie dans un instant.');
+      return;
+    }
+    // Deuxième verrou, au cas où un appelant contournerait l'écran : un
+    // abonnement attaché à un compte anonyme se perd au changement d'appareil.
+    if(!state.user){
+      toast('Connecte-toi d\'abord pour que ton abonnement te suive partout.');
       return;
     }
     if(btn){ btn.disabled = true; btn.innerHTML = icon('clock',17)+' Redirection…'; }
