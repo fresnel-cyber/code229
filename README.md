@@ -23,14 +23,27 @@ fichiers touchés.
 npm test
 ```
 
-Couvre le webhook KPay — la seule route qui active Premium, donc la seule dont
-une régression se paie en argent réel : signature absente / invalide / rejouée,
-webhook livré deux fois, montant ou devise non conformes, paiement inconnu,
-panne technique. Aucun réseau ni Firestore, les modules externes sont doublés.
+35 tests sur les deux routes qui accordent Premium — les seules dont une
+régression se paie en argent réel.
 
-Ces tests ont été validés par mutation : désactiver la vérification de
-signature, le contrôle d'idempotence, celui du montant, celui de la devise ou
-celui du paiement inconnu fait échouer la suite à chaque fois.
+**Webhook KPay** (`tests/kpay-webhook.test.js`) : signature absente, invalide,
+ou valide mais calculée sur un autre corps ; webhook livré deux fois ; montant
+ou devise contredits par la relecture chez KPay ; paiement inconnu ; panne
+technique qui doit renvoyer 500 pour être retentée.
+
+**Codes promo** (`tests/redeem-code.test.js`) : authentification, format du
+code, non-divulgation (« inexistant », « désactivé » et « expiré » renvoient le
+même message), anti-force brute, unicité par compte, plafond d'utilisations, et
+surtout **la concurrence** — deux comptes visant simultanément le dernier usage
+d'un code, dont un seul doit passer.
+
+Aucun réseau, aucun Firestore, aucune clé : les modules externes sont doublés
+dans le cache de `require`. `tests/helpers/faux-firestore.js` reproduit la
+concurrence optimiste des transactions (version par document, rejeu au commit)
+— sans elle, le test de concurrence ne prouverait rien.
+
+Tous validés par mutation : chaque garde-fou retiré un par un fait échouer la
+suite. Une suite verte qui ne détecte rien serait pire que pas de suite.
 
 ## Codes promo
 

@@ -51,10 +51,16 @@ lecture de code quand la réalité est mesurable.
 
 ## Tests
 
-`npm test` couvre le webhook KPay (`tests/kpay-webhook.test.js`). Toute
-modification de `api/kpay-webhook.js`, `api/_lib/kpay.js` ou
-`api/_lib/premium.js` doit le laisser vert — et si elle ajoute un garde-fou,
-ajouter le test qui échoue quand on le retire.
+`npm test` couvre le webhook KPay (`tests/kpay-webhook.test.js`) et les codes
+promo (`tests/redeem-code.test.js`). Toute modification de `api/kpay-webhook.js`,
+`api/redeem-code.js`, `api/_lib/kpay.js` ou `api/_lib/premium.js` doit les
+laisser verts — et si elle ajoute un garde-fou, ajouter le test qui échoue
+quand on le retire.
+
+La concurrence des transactions Firestore est reproduite par
+`tests/helpers/faux-firestore.js` (version par document, rejeu au commit). Ne
+pas la remplacer par un simple objet en mémoire : la garantie « un code à N
+usages n'en accorde pas N+1 » ne serait plus testée.
 
 Les modules qui sortent du processus sont doublés via le cache de `require` :
 aucun test n'appelle KPay ni Firestore. Ne jamais faire dépendre un test d'une
